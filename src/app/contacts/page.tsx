@@ -120,7 +120,7 @@ export default async function ContactsPage({
          <div className="overflow-x-auto">
           <table className="w-full min-w-[1000px] text-sm">
             <thead>
-              <tr className="border-b border-brand-hairline text-left text-xs uppercase tracking-wide text-brand-muted">
+              <tr className="border-b border-brand-hairline/70 bg-slate-50/40 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-brand-muted">
                 <th className="px-5 py-2.5 font-medium">Name</th>
                 <th className="py-2.5 font-medium">Email / Phone</th>
                 <th className="py-2.5 font-medium">Company</th>
@@ -143,14 +143,14 @@ export default async function ContactsPage({
                 contacts.map((c) => (
                   <tr
                     key={c.latestLeadId}
-                    className="group border-b border-brand-hairline/60 last:border-none hover:bg-brand-blue-tint"
+                    className="group border-b border-brand-hairline/50 transition-colors last:border-none hover:bg-slate-50/70"
                   >
                     <td className="px-5 py-3">
                       <Link
                         href={`/contacts/${encodeURIComponent(c.email)}`}
                         className="flex items-center gap-2"
                       >
-                        <span className="font-medium text-brand-navy group-hover:underline">
+                        <span className="font-semibold tracking-tight text-brand-navy group-hover:text-brand-blue">
                           {c.fullName}
                         </span>
                         <RawPill className={gradeColor(c.latestLeadGrade)}>

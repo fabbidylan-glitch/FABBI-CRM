@@ -58,7 +58,7 @@ export function LeadsTable({
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1200px] text-sm">
           <thead>
-            <tr className="border-y border-brand-hairline font-medium">
+            <tr className="border-y border-brand-hairline/70 bg-slate-50/40 text-[10px] font-semibold uppercase tracking-[0.12em] text-brand-muted">
               <th className="px-5 py-2.5">
                 <input
                   type="checkbox"
@@ -123,8 +123,8 @@ export function LeadsTable({
                 return (
                   <tr
                     key={l.id}
-                    className={`group border-b border-brand-hairline/60 last:border-none ${
-                      isSelected ? "bg-brand-blue-tint/50" : "hover:bg-brand-blue-tint"
+                    className={`group border-b border-brand-hairline/50 transition-colors last:border-none ${
+                      isSelected ? "bg-brand-blue-tint/60" : "hover:bg-slate-50/70"
                     }`}
                   >
                     <td className="px-5 py-3">
@@ -138,10 +138,10 @@ export function LeadsTable({
                     </td>
                     <td className="py-3">
                       <Link href={`/leads/${l.id}`} className="block">
-                        <div className="font-medium text-brand-navy group-hover:underline">
+                        <div className="font-semibold tracking-tight text-brand-navy group-hover:text-brand-blue">
                           {l.firstName} {l.lastName}
                         </div>
-                        <div className="text-xs text-brand-muted">{l.email}</div>
+                        <div className="mt-0.5 text-xs text-brand-muted">{l.email}</div>
                       </Link>
                     </td>
                     <td className="py-3 text-slate-700">{l.niche}</td>

@@ -30,15 +30,16 @@ export function ActiveNav({ items, variant }: Props) {
               key={n.href}
               href={n.href}
               aria-current={active ? "page" : undefined}
-              className={`flex items-center gap-2 rounded-md px-3 py-2 font-medium transition ${
+              className={`group relative flex items-center gap-2.5 rounded-lg px-3 py-2 font-medium transition duration-150 ${
                 active
-                  ? "bg-white/10 text-white"
-                  : "text-white/60 hover:bg-white/5 hover:text-white"
+                  ? "bg-white/[0.08] text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.06)]"
+                  : "text-white/55 hover:bg-white/[0.04] hover:text-white"
               }`}
             >
               <span
-                className={`h-1 w-1 rounded-full transition ${
-                  active ? "bg-brand-blue" : "bg-transparent"
+                aria-hidden
+                className={`absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-blue transition-opacity ${
+                  active ? "opacity-100" : "opacity-0"
                 }`}
               />
               {n.label}
