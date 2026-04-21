@@ -53,7 +53,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
     }),
     prisma.lead.update({
       where: { id: proposal.leadId },
-      data: { pipelineStage: "LOST", lastStageChangeAt: now },
+      data: { pipelineStage: "LOST" },
     }),
     prisma.pipelineEvent.create({
       data: {

@@ -109,7 +109,6 @@ export async function POST(req: NextRequest) {
       where: { id: leadId },
       data: {
         pipelineStage: "PROPOSAL_DRAFTING",
-        lastStageChangeAt: new Date(),
         estimatedAnnualValue: result.monthlyRecommended * 12,
       },
     });

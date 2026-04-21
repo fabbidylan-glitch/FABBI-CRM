@@ -49,10 +49,7 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ proposalI
     }),
     prisma.lead.update({
       where: { id: proposal.leadId },
-      data: {
-        pipelineStage: "WON",
-        lastStageChangeAt: now,
-      },
+      data: { pipelineStage: "WON" },
     }),
     prisma.onboarding.create({
       data: {
