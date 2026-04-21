@@ -22,6 +22,14 @@ function pick(sp: SearchParams, key: string): string | undefined {
   return undefined;
 }
 
+function buildContactsExportQuery(type: ContactType | undefined, search: string | undefined): string {
+  const params = new URLSearchParams();
+  if (type) params.set("type", type);
+  if (search) params.set("search", search);
+  const qs = params.toString();
+  return qs ? `/api/contacts/export?${qs}` : "/api/contacts/export";
+}
+
 const TYPE_TABS: { v: ContactType | "ALL"; label: string }[] = [
   { v: "ALL", label: "All" },
   { v: "CLIENT", label: "Clients" },
@@ -94,6 +102,12 @@ export default async function ContactsPage({
             >
               Import CSV
             </Link>
+            <a
+              href={buildContactsExportQuery(type, search)}
+              className="rounded-md border border-brand-hairline bg-white px-3 py-1.5 text-xs font-medium text-brand-navy hover:bg-brand-blue-tint"
+            >
+              Export CSV
+            </a>
             <Link
               href="/contacts/merge"
               className="rounded-md border border-brand-hairline bg-white px-3 py-1.5 text-xs font-medium text-brand-navy hover:bg-brand-blue-tint"

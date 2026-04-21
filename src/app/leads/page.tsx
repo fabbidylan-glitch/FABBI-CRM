@@ -1,6 +1,7 @@
 import { Shell } from "@/components/shell";
 import { LeadsFilters } from "@/components/leads-filters";
 import { LeadsTable } from "@/components/leads-table";
+import { NewLeadModal } from "@/components/new-lead-modal";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -10,7 +11,6 @@ import { config } from "@/lib/config";
 import { listLeads, type LeadsFilter, type LeadsSortKey } from "@/lib/features/leads/queries";
 import { listActiveLostReasons, listActiveUsers } from "@/lib/features/users/queries";
 import type { Stage } from "@/lib/preview/fixtures";
-import Link from "next/link";
 
 type SearchParams = { [k: string]: string | string[] | undefined };
 
@@ -18,6 +18,15 @@ function pick(sp: SearchParams, key: string): string | undefined {
   const v = sp[key];
   if (typeof v === "string" && v.length > 0) return v;
   return undefined;
+}
+
+function buildExportQuery(sp: SearchParams): string {
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) {
+    if (typeof v === "string" && v.length > 0) params.set(k, v);
+  }
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
 }
 
 const SORT_COLUMNS: LeadsSortKey[] = [
@@ -85,12 +94,18 @@ export default async function LeadsListPage({
               </span>
             ) : null}
           </div>
-          <Link
-            href="/intake"
-            className="rounded-md bg-brand-blue px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-blue-dark"
-          >
-            + New lead
-          </Link>
+          <div className="flex items-center gap-2">
+            <a
+              href={`/api/leads/export${buildExportQuery(sp)}`}
+              className="rounded-md border border-brand-hairline bg-white px-3 py-1.5 text-xs font-medium text-brand-navy hover:bg-brand-blue-tint"
+            >
+              Export CSV
+            </a>
+            <NewLeadModal
+              users={users.map((u) => ({ id: u.id, name: u.name }))}
+              canCreate={canEdit}
+            />
+          </div>
         </div>
         <LeadsTable
           leads={leads}

@@ -11,6 +11,7 @@ import { LeadOwnerControl } from "@/components/lead-owner-control";
 import { LeadSendActions } from "@/components/lead-send-actions";
 import { LeadStageControl } from "@/components/lead-stage-control";
 import { LeadTasksCard } from "@/components/lead-tasks-card";
+import { LogCallButton } from "@/components/log-call-button";
 import { Card, CardBody, CardHeader, Pill, RawPill } from "@/components/ui";
 import { config } from "@/lib/config";
 import { getLead } from "@/lib/features/leads/queries";
@@ -118,6 +119,9 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                     whatsappTemplates={whatsappTemplates}
                     smsTemplates={smsTemplates}
                   />
+                  {canEdit ? (
+                    <LogCallButton leadId={lead.id} phoneE164={phoneE164} />
+                  ) : null}
                 </div>
               </div>
 
