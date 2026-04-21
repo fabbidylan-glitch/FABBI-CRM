@@ -318,6 +318,7 @@ model User {
   assignedTasks     Task[]             @relation("TaskAssignee")
   ruleUpdates       RuleConfig[]       @relation("RuleUpdatedBy")
   marketingSpend    MarketingSpend[]   @relation("SpendCreatedBy")
+  onboardings       Onboarding[]       @relation("OnboardingAssignee")
 
   @@index([role, isActive])
   @@map("users")
@@ -405,6 +406,8 @@ model Lead {
   communications     Communication[]
   sequences          SequenceEnrollment[]
   proposals          Proposal[]
+  quotes             Quote[]
+  onboarding         Onboarding?
   handoffs           ClientHandoff[]
   mergedFromLeads    LeadMerge[]              @relation("LeadMergeTarget")
   mergedIntoLead     LeadMerge[]              @relation("LeadMergeSource")
@@ -594,11 +597,16 @@ model Proposal {
   id                  String         @id @default(cuid())
   leadId              String         @map("lead_id")
   lead                Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  quoteId             String?        @unique @map("quote_id")
+  quote               Quote?         @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   externalProposalId  String?        @unique @map("external_proposal_id")
   proposalStatus      ProposalStatus @default(DRAFT) @map("proposal_status")
   servicePackage      String?        @map("service_package")
   monthlyValue        Decimal?       @map("monthly_value") @db.Decimal(12, 2)
+  onetimeValue        Decimal?       @map("onetime_value") @db.Decimal(12, 2)
   annualValue         Decimal?       @map("annual_value") @db.Decimal(12, 2)
+  scopeSummary        String?        @map("scope_summary")
+  declineReason       String?        @map("decline_reason")
   sentAt              DateTime?      @map("sent_at")
   viewedAt            DateTime?      @map("viewed_at")
   acceptedAt          DateTime?      @map("accepted_at")
@@ -607,7 +615,9 @@ model Proposal {
   createdAt           DateTime       @default(now()) @map("created_at")
   updatedAt           DateTime       @updatedAt @map("updated_at")
 
+  lineItems           ProposalLineItem[]
   handoffs            ClientHandoff[]
+  onboarding          Onboarding?
 
   @@index([leadId, proposalStatus])
   @@index([proposalStatus, sentAt])
@@ -710,4 +720,159 @@ model LeadMerge {
   @@unique([sourceLeadId])
   @@index([targetLeadId])
   @@map("lead_merges")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Proposal + Pricing Engine (Phase 1 of FABBI OS expansion)
+//
+// Quotes capture a scoping session + calculated prices. Proposals wrap a Quote
+// with line items, scope summary, send/accept tracking. Pricing rules are
+// reference data that feeds the calculator — we keep them here (instead of
+// hardcoded in code) so pricing can be tuned without a deploy.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum PricingRuleType {
+  BASE_FEE
+  TXN_VOLUME
+  ENTITY_COUNT
+  ACCOUNT_COUNT
+  PAYROLL
+  SALES_TAX
+  AP_AR
+  INVENTORY
+  CLASS_LOCATION
+  MULTI_STATE
+  CLEANUP
+  NICHE
+  TAX_ADDON
+  ADVISORY_ADDON
+  OTHER
+}
+
+enum ComplexityLevel {
+  SIMPLE
+  STANDARD
+  COMPLEX
+  VERY_COMPLEX
+}
+
+enum LineItemKind {
+  MONTHLY_BOOKKEEPING
+  MONTHLY_TAX
+  MONTHLY_ADVISORY
+  MONTHLY_ADDON
+  ONETIME_CLEANUP
+  ONETIME_TAX_RETURN
+  ONETIME_SETUP
+  ONETIME_OTHER
+}
+
+enum OnboardingStage {
+  SIGNED
+  WELCOME_SENT
+  PAYMENT_COLLECTED
+  ENGAGEMENT_COMPLETED
+  DOCS_REQUESTED
+  DOCS_RECEIVED
+  ACCESS_RECEIVED
+  QUESTIONNAIRE_COMPLETE
+  KICKOFF_SCHEDULED
+  ACCOUNT_SETUP_COMPLETE
+  READY_FOR_RECURRING
+  COMPLETE
+}
+
+model ServicePackage {
+  id             String   @id @default(cuid())
+  key            String   @unique
+  name           String
+  description    String?
+  baseMonthlyFee Decimal  @map("base_monthly_fee") @db.Decimal(10, 2)
+  isActive       Boolean  @default(true) @map("is_active")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  quotes         Quote[]
+
+  @@map("service_packages")
+}
+
+model PricingRule {
+  id         String          @id @default(cuid())
+  key        String          @unique
+  name       String
+  ruleType   PricingRuleType @map("rule_type")
+  paramsJson Json            @map("params_json")
+  isActive   Boolean         @default(true) @map("is_active")
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+
+  @@index([ruleType, isActive])
+  @@map("pricing_rules")
+}
+
+model Quote {
+  id               String          @id @default(cuid())
+  leadId           String          @map("lead_id")
+  lead             Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  packageKey       String?         @map("package_key")
+  servicePackage   ServicePackage? @relation(fields: [packageKey], references: [key], onDelete: SetNull)
+  scopingInputs    Json            @map("scoping_inputs")
+  floorPrice       Decimal?        @map("floor_price") @db.Decimal(10, 2)
+  recommendedPrice Decimal?        @map("recommended_price") @db.Decimal(10, 2)
+  stretchPrice     Decimal?        @map("stretch_price") @db.Decimal(10, 2)
+  catchupQuote     Decimal?        @map("catchup_quote") @db.Decimal(10, 2)
+  taxQuote         Decimal?        @map("tax_quote") @db.Decimal(10, 2)
+  advisoryQuote    Decimal?        @map("advisory_quote") @db.Decimal(10, 2)
+  complexityLevel  ComplexityLevel @default(STANDARD) @map("complexity_level")
+  internalNotes    String?         @map("internal_notes")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  proposal         Proposal?
+
+  @@index([leadId, createdAt])
+  @@map("quotes")
+}
+
+model ProposalLineItem {
+  id            String       @id @default(cuid())
+  proposalId    String       @map("proposal_id")
+  proposal      Proposal     @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  kind          LineItemKind
+  description   String
+  monthlyAmount Decimal?     @map("monthly_amount") @db.Decimal(10, 2)
+  onetimeAmount Decimal?     @map("onetime_amount") @db.Decimal(10, 2)
+  quantity      Int          @default(1)
+  sortOrder     Int          @default(0) @map("sort_order")
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  @@index([proposalId])
+  @@map("proposal_line_items")
+}
+
+// Stub onboarding — Phase 2 will flesh this out with templates, checklists,
+// document requests, and access trackers.
+model Onboarding {
+  id             String          @id @default(cuid())
+  leadId         String          @unique @map("lead_id")
+  lead           Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  proposalId     String?         @unique @map("proposal_id")
+  proposal       Proposal?       @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+  templateKey    String?         @map("template_key")
+  stage          OnboardingStage @default(SIGNED)
+  assignedUserId String?         @map("assigned_user_id")
+  assignedUser   User?           @relation("OnboardingAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  monthlyFee     Decimal?        @map("monthly_fee") @db.Decimal(10, 2)
+  catchupFee     Decimal?        @map("catchup_fee") @db.Decimal(10, 2)
+  taxFee         Decimal?        @map("tax_fee") @db.Decimal(10, 2)
+  scopeSummary   String?         @map("scope_summary")
+  completedAt    DateTime?       @map("completed_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  @@index([stage])
+  @@index([assignedUserId, stage])
+  @@map("onboardings")
 }

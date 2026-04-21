@@ -138,6 +138,14 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                   {canEdit ? (
                     <LogCallButton leadId={lead.id} phoneE164={phoneE164} />
                   ) : null}
+                  {canEdit ? (
+                    <Link
+                      href={`/leads/${lead.id}/scope`}
+                      className="rounded-md bg-gradient-to-br from-brand-blue to-brand-blue-dark px-3 py-1.5 text-xs font-semibold text-white shadow-btn-primary transition hover:from-brand-blue-dark hover:to-brand-navy"
+                    >
+                      Scope + price →
+                    </Link>
+                  ) : null}
                 </div>
               </div>
 
