@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
+import { Prisma } from "@prisma/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { config } from "@/lib/config";
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   // Create the Communication row, update lead touch timestamp, log the pipeline
   // event, and (optionally) close any open CALL task in a single transaction so
   // the UI reflects the logged call atomically.
-  const ops: Array<Promise<unknown>> = [
+  const ops: Prisma.PrismaPromise<unknown>[] = [
     prisma.communication.create({
       data: {
         leadId: id,
