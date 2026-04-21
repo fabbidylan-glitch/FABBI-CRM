@@ -4,8 +4,10 @@ import {
   OverdueTasksCard,
   StuckLeadsCard,
 } from "@/components/accountability-widgets";
+import { DashboardHero } from "@/components/dashboard-hero";
 import { IntegrationsStatus } from "@/components/integrations-status";
 import { LiveRefresh } from "@/components/live-refresh";
+import { PipelineFunnel } from "@/components/pipeline-funnel";
 import { Shell } from "@/components/shell";
 import { config as appConfig } from "@/lib/config";
 import { prisma } from "@/lib/db";
@@ -15,6 +17,16 @@ import {
   getStuckLeads,
 } from "@/lib/features/dashboard/accountability";
 import { countOnboardings, listOnboardings } from "@/lib/features/onboarding/queries";
+import {
+  deltaFor,
+  getConsultsSeries,
+  getLeadsSeries,
+  getPipelineFunnel,
+  getProposalsSeries,
+  getQualifiedSeries,
+  getWonArrSeries,
+  getWonSeries,
+} from "@/lib/features/dashboard/timeseries";
 import { listActiveUsers } from "@/lib/features/users/queries";
 
 // Never cache the dashboard — every render should pull fresh counts. Without
@@ -66,6 +78,13 @@ export default async function DashboardPage({
     users,
     onboardingCounts,
     blockedOnboardings,
+    leadsSeries,
+    qualifiedSeries,
+    consultsSeries,
+    proposalsSeries,
+    wonSeries,
+    wonArrSeries,
+    funnel,
   ] = await Promise.all([
     getDashboardKpis(),
     getSourcePerformance(),
@@ -78,7 +97,21 @@ export default async function DashboardPage({
     listActiveUsers(),
     countOnboardings(),
     listOnboardings({ status: "blocked" }),
+    getLeadsSeries(30),
+    getQualifiedSeries(30),
+    getConsultsSeries(30),
+    getProposalsSeries(30),
+    getWonSeries(30),
+    getWonArrSeries(30),
+    getPipelineFunnel(30),
   ]);
+
+  const leadsDelta = deltaFor(leadsSeries);
+  const qualifiedDelta = deltaFor(qualifiedSeries);
+  const consultsDelta = deltaFor(consultsSeries);
+  const proposalsDelta = deltaFor(proposalsSeries);
+  const wonDelta = deltaFor(wonSeries);
+  const wonArrDelta = deltaFor(wonArrSeries);
 
   return (
     <Shell title={isMyView ? "My Day" : "Dashboard"}>
@@ -109,12 +142,29 @@ export default async function DashboardPage({
         </div>
         <LiveRefresh />
       </div>
+
+      {!isMyView ? (
+        <div className="mb-4">
+          <DashboardHero
+            monthToDateArr={kpis.wonArrThisMonth}
+            arrSeries={wonArrSeries.values}
+            previousMonthArr={wonArrSeries.prevTotal}
+            leadsThisMonth={kpis.leadsThisMonth}
+            wonThisMonth={kpis.wonThisMonth}
+            pipelineValue={kpis.pipelineValue}
+          />
+        </div>
+      ) : null}
+
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Leads this month"
           value={String(kpis.leadsThisMonth)}
           hint="All sources"
           tooltip="Count of Lead records created in the current calendar month, any source."
+          sparkline={leadsSeries.values}
+          trend={leadsDelta?.label}
+          trendTone={leadsDelta?.tone}
         />
         <Stat
           label="Qualified"
@@ -125,18 +175,30 @@ export default async function DashboardPage({
               : "—"
           }
           tooltip="Leads created this month whose scoring result was QUALIFIED. Manual qualification overrides in the admin UI also count."
+          sparkline={qualifiedSeries.values}
+          sparklineColor="#7c3aed"
+          trend={qualifiedDelta?.label}
+          trendTone={qualifiedDelta?.tone}
         />
         <Stat
           label="Consults booked"
           value={String(kpis.consultsBookedThisMonth)}
           hint={`${Math.round(kpis.showRate * 100)}% show rate`}
           tooltip="Stage transitions INTO Consult Booked this month — drag/drop, pill dropdown, and Calendly webhook all count. Show rate = leads that progressed to Consult Completed in last 30 days."
+          sparkline={consultsSeries.values}
+          sparklineColor="#0ea5e9"
+          trend={consultsDelta?.label}
+          trendTone={consultsDelta?.tone}
         />
         <Stat
           label="Proposals sent"
           value={String(kpis.proposalsSent)}
           hint={`${Math.round(kpis.closeRate * 100)}% close rate`}
           tooltip="Stage transitions INTO Proposal Sent this month (manual or via Anchor webhook). Close rate = Won / Proposals Sent."
+          sparkline={proposalsSeries.values}
+          sparklineColor="#f59e0b"
+          trend={proposalsDelta?.label}
+          trendTone={proposalsDelta?.tone}
         />
       </div>
 
@@ -146,6 +208,10 @@ export default async function DashboardPage({
           value={String(kpis.wonThisMonth)}
           hint={`${formatCurrency(kpis.wonArrThisMonth)} new ARR`}
           tooltip="Stage transitions INTO Won this month. ARR is the sum of each won lead's estimated annual value."
+          sparkline={wonSeries.values}
+          sparklineColor="#10b981"
+          trend={wonDelta?.label}
+          trendTone={wonDelta?.tone}
         />
         <Stat
           label="Pipeline value"
@@ -226,6 +292,12 @@ export default async function DashboardPage({
               </ul>
             </CardBody>
           </Card>
+        </div>
+      ) : null}
+
+      {!isMyView ? (
+        <div className="mt-4">
+          <PipelineFunnel stages={funnel} days={30} />
         </div>
       ) : null}
 

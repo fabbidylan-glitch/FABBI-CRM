@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Sparkline } from "@/components/sparkline";
 
 export function Card({
   children,
@@ -42,6 +43,8 @@ export function Stat({
   tooltip,
   trend,
   trendTone = "neutral",
+  sparkline,
+  sparklineColor,
 }: {
   label: string;
   value: string;
@@ -50,6 +53,10 @@ export function Stat({
   /** Optional trend chip — e.g. "+12%", "-4" — shown in the top-right corner. */
   trend?: string;
   trendTone?: "positive" | "negative" | "neutral";
+  /** 7–30 numeric datapoints to render as a micro-trend under the number. */
+  sparkline?: readonly number[];
+  /** Defaults to brand blue. Pass a tone-appropriate hex to match the card. */
+  sparklineColor?: string;
 }) {
   const trendCls =
     trendTone === "positive"
@@ -77,8 +84,19 @@ export function Stat({
             </span>
           ) : null}
         </div>
-        <div className="mt-3 text-[2.125rem] font-semibold leading-none tracking-[-0.02em] text-brand-navy tabular-nums">
-          {value}
+        <div className="mt-3 flex items-end justify-between gap-3">
+          <div className="text-[2.125rem] font-semibold leading-none tracking-[-0.02em] text-brand-navy tabular-nums">
+            {value}
+          </div>
+          {sparkline && sparkline.length > 1 ? (
+            <Sparkline
+              data={sparkline}
+              color={sparklineColor ?? "#005bf7"}
+              width={76}
+              height={26}
+              className="shrink-0"
+            />
+          ) : null}
         </div>
         {hint ? <div className="mt-2 text-xs text-brand-muted">{hint}</div> : null}
       </div>
