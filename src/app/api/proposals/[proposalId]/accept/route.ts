@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
 import { config } from "@/lib/config";
 import { prisma } from "@/lib/db";
+import { getTemplate } from "@/lib/onboarding/templates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,6 +63,16 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ proposalI
         catchupFee: proposal.quote?.catchupQuote ?? null,
         taxFee: proposal.quote?.taxQuote ?? null,
         scopeSummary: proposal.scopeSummary,
+        checklistItems: {
+          createMany: {
+            data: getTemplate(templateKey).items.map((item, idx) => ({
+              kind: item.kind,
+              label: item.label,
+              description: item.description ?? null,
+              sortOrder: idx,
+            })),
+          },
+        },
       },
     }),
     prisma.pipelineEvent.create({

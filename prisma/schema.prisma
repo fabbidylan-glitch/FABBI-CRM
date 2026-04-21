@@ -852,8 +852,9 @@ model ProposalLineItem {
   @@map("proposal_line_items")
 }
 
-// Stub onboarding — Phase 2 will flesh this out with templates, checklists,
-// document requests, and access trackers.
+// Onboarding — the sales-to-service handoff. Created automatically when a
+// proposal is accepted; carries the sold scope + fees forward into the
+// operational work.
 model Onboarding {
   id             String          @id @default(cuid())
   leadId         String          @unique @map("lead_id")
@@ -868,11 +869,49 @@ model Onboarding {
   catchupFee     Decimal?        @map("catchup_fee") @db.Decimal(10, 2)
   taxFee         Decimal?        @map("tax_fee") @db.Decimal(10, 2)
   scopeSummary   String?         @map("scope_summary")
+  blockerNote    String?         @map("blocker_note")
+  blockedAt      DateTime?       @map("blocked_at")
   completedAt    DateTime?       @map("completed_at")
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
 
+  checklistItems OnboardingChecklistItem[]
+
   @@index([stage])
   @@index([assignedUserId, stage])
+  @@index([blockedAt])
   @@map("onboardings")
+}
+
+enum ChecklistItemKind {
+  DOCUMENT
+  ACCESS
+  QUESTION
+  SETUP
+}
+
+enum ChecklistItemStatus {
+  PENDING
+  COMPLETE
+  BLOCKED
+  NOT_APPLICABLE
+}
+
+model OnboardingChecklistItem {
+  id             String              @id @default(cuid())
+  onboardingId   String              @map("onboarding_id")
+  onboarding     Onboarding          @relation(fields: [onboardingId], references: [id], onDelete: Cascade)
+  kind           ChecklistItemKind
+  label          String
+  description    String?
+  status         ChecklistItemStatus @default(PENDING)
+  note           String?
+  sortOrder      Int                 @default(0) @map("sort_order")
+  completedAt    DateTime?           @map("completed_at")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  @@index([onboardingId, kind])
+  @@index([status])
+  @@map("onboarding_checklist_items")
 }

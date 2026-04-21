@@ -13,6 +13,7 @@ const NAV = [
   { href: "/leads", label: "Leads" },
   { href: "/contacts", label: "Contacts" },
   { href: "/pipeline", label: "Pipeline" },
+  { href: "/onboarding", label: "Onboarding" },
 ];
 
 export async function Shell({ children, title }: { children: ReactNode; title: string }) {

@@ -14,6 +14,7 @@ import {
   getOverdueTasks,
   getStuckLeads,
 } from "@/lib/features/dashboard/accountability";
+import { countOnboardings, listOnboardings } from "@/lib/features/onboarding/queries";
 import { listActiveUsers } from "@/lib/features/users/queries";
 
 // Never cache the dashboard — every render should pull fresh counts. Without
@@ -63,6 +64,8 @@ export default async function DashboardPage({
     stuckLeads,
     unassignedCount,
     users,
+    onboardingCounts,
+    blockedOnboardings,
   ] = await Promise.all([
     getDashboardKpis(),
     getSourcePerformance(),
@@ -73,6 +76,8 @@ export default async function DashboardPage({
     getStuckLeads(10, meUserId ? { ownerUserId: meUserId } : {}),
     countUnassignedLeads(),
     listActiveUsers(),
+    countOnboardings(),
+    listOnboardings({ status: "blocked" }),
   ]);
 
   return (
@@ -162,6 +167,21 @@ export default async function DashboardPage({
         />
       </div>
 
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat
+          label="Active onboardings"
+          value={String(onboardingCounts.active)}
+          hint={
+            onboardingCounts.blocked > 0
+              ? `${onboardingCounts.blocked} blocked`
+              : "None blocked"
+          }
+          trend={onboardingCounts.blocked > 0 ? `${onboardingCounts.blocked}` : undefined}
+          trendTone={onboardingCounts.blocked > 0 ? "negative" : "neutral"}
+          tooltip="Onboardings that haven't reached the Complete stage yet. Created automatically when a proposal is accepted."
+        />
+      </div>
+
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <OverdueTasksCard
           tasks={overdueTasks}
@@ -170,6 +190,44 @@ export default async function DashboardPage({
         />
         <StuckLeadsCard leads={stuckLeads} />
       </div>
+
+      {blockedOnboardings.length > 0 ? (
+        <div className="mt-4">
+          <Card>
+            <CardHeader
+              title={`Blocked onboardings (${blockedOnboardings.length})`}
+              action={
+                <Link href="/onboarding?status=blocked" className="text-xs text-brand-blue hover:underline">
+                  View all →
+                </Link>
+              }
+            />
+            <CardBody className="px-0 py-0">
+              <ul className="divide-y divide-brand-hairline/60">
+                {blockedOnboardings.slice(0, 5).map((o) => (
+                  <li key={o.id} className="flex items-start gap-3 px-5 py-2.5">
+                    <Link
+                      href={`/onboarding/${o.id}`}
+                      className="min-w-0 flex-1"
+                    >
+                      <div className="font-medium text-brand-navy hover:text-brand-blue">
+                        {o.leadName}
+                        {o.companyName ? ` · ${o.companyName}` : ""}
+                      </div>
+                      <div className="mt-0.5 truncate text-xs text-brand-muted">
+                        {o.blockerNote ?? "Blocked — no note"}
+                      </div>
+                    </Link>
+                    <div className="shrink-0 text-right text-[11px] text-brand-muted">
+                      {o.blockedAt ? `Since ${new Date(o.blockedAt).toLocaleDateString()}` : ""}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </CardBody>
+          </Card>
+        </div>
+      ) : null}
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
