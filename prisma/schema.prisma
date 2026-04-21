@@ -1,0 +1,713 @@
+// FABBI CRM — Prisma schema
+// Production data model for the lead CRM described in Claude.md build spec.
+//
+// Conventions:
+// - PostgreSQL provider
+// - camelCase on model fields, snake_case on physical columns via @map
+// - Immutable audit logs (LeadSubmission, PipelineEvent) append-only
+// - Every lead-touching table has leadId + index for fast lookups
+// - JSON columns capture external/raw payloads so integrations can evolve
+//
+// TODO: once Clerk vs NextAuth is chosen, add appropriate external-id columns
+// TODO: once Ignition / Double / Keeper webhook shapes are confirmed, tighten
+//       the JSON payload fields into typed columns where practical.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  SALES
+  MANAGER
+  REVIEWER
+  MARKETING
+  READ_ONLY
+}
+
+enum LeadStatus {
+  ACTIVE
+  ARCHIVED
+  MERGED
+}
+
+enum PipelineStage {
+  NEW_LEAD
+  CONTACTED
+  QUALIFIED
+  CONSULT_BOOKED
+  CONSULT_COMPLETED
+  PROPOSAL_DRAFTING
+  PROPOSAL_SENT
+  FOLLOW_UP_NEGOTIATION
+  WON
+  LOST
+  COLD_NURTURE
+}
+
+enum QualificationStatus {
+  UNREVIEWED
+  QUALIFIED
+  MANUAL_REVIEW
+  NURTURE_ONLY
+  DISQUALIFIED
+}
+
+enum LeadGrade {
+  A
+  B
+  C
+  D
+}
+
+enum LeadSource {
+  WEBSITE
+  LANDING_PAGE
+  GOOGLE_ADS
+  META_ADS
+  LINKEDIN_ADS
+  ORGANIC_SEARCH
+  ORGANIC_BRANDED
+  REFERRAL
+  PARTNER_REFERRAL
+  CALENDLY
+  MANUAL
+  CSV_IMPORT
+  EVENT
+  PODCAST
+  OTHER
+}
+
+enum Niche {
+  STR_OWNER
+  AIRBNB_VRBO_OPERATOR
+  REAL_ESTATE_INVESTOR
+  HIGH_INCOME_STR_STRATEGY
+  MULTI_SERVICE_CLIENT
+  GENERAL_SMB
+  OTHER
+  UNKNOWN
+}
+
+enum FitType {
+  ICP_PREMIUM
+  ICP
+  STRETCH
+  NON_FIT
+  UNKNOWN
+}
+
+enum ServiceInterest {
+  TAX_PREP
+  BOOKKEEPING
+  TAX_STRATEGY
+  BOOKKEEPING_AND_TAX
+  CFO
+  FULL_SERVICE
+  UNSURE
+}
+
+enum AnnualRevenueRange {
+  UNDER_250K
+  FROM_250K_TO_500K
+  FROM_500K_TO_1M
+  OVER_1M
+  UNKNOWN
+}
+
+enum AnnualProfitRange {
+  UNDER_50K
+  FROM_50K_TO_150K
+  FROM_150K_TO_500K
+  OVER_500K
+  UNKNOWN
+}
+
+enum TaxesPaidRange {
+  UNDER_10K
+  FROM_10K_TO_25K
+  FROM_25K_TO_50K
+  FROM_50K_TO_100K
+  OVER_100K
+  UNKNOWN
+}
+
+enum PropertyCountBucket {
+  NONE
+  ONE
+  TWO_TO_FOUR
+  FIVE_TO_NINE
+  TEN_PLUS
+  UNKNOWN
+}
+
+enum UrgencyLevel {
+  RESEARCHING
+  NEXT_30_DAYS
+  NOW
+  UNKNOWN
+}
+
+enum PreferredContactMethod {
+  EMAIL
+  PHONE
+  SMS
+  WHATSAPP
+  ANY
+}
+
+enum TaskType {
+  CALL
+  EMAIL
+  SMS
+  WHATSAPP
+  MEETING
+  REVIEW
+  INTERNAL
+  OTHER
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  OVERDUE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum CommunicationChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+  CALL
+  OTHER
+}
+
+enum CommunicationDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum DeliveryStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  REPLIED
+  FAILED
+  BOUNCED
+  UNDELIVERED
+}
+
+enum SequenceStatus {
+  ENROLLED
+  ACTIVE
+  PAUSED
+  COMPLETED
+  EXITED
+}
+
+enum SequenceExitReason {
+  COMPLETED
+  REPLIED
+  PROPOSAL_ACCEPTED
+  PROPOSAL_DECLINED
+  MANUAL_STOP
+  DISQUALIFIED
+  ERROR
+}
+
+enum ProposalStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+  EXPIRED
+}
+
+enum HandoffStatus {
+  PENDING
+  IN_PROGRESS
+  SYNCED
+  FAILED
+  MANUAL_OVERRIDE
+}
+
+enum DestinationSystem {
+  DOUBLE
+  KEEPER
+  OTHER
+}
+
+enum NoteType {
+  GENERAL
+  CALL_SUMMARY
+  MEETING_SUMMARY
+  DISCOVERY
+  INTERNAL
+}
+
+enum PipelineEventType {
+  LEAD_CREATED
+  SUBMISSION_RECEIVED
+  STAGE_CHANGED
+  OWNER_CHANGED
+  SCORE_UPDATED
+  QUALIFICATION_UPDATED
+  NOTE_ADDED
+  TASK_CREATED
+  TASK_COMPLETED
+  COMMUNICATION_SENT
+  COMMUNICATION_RECEIVED
+  CONSULT_BOOKED
+  CONSULT_COMPLETED
+  CONSULT_NO_SHOW
+  PROPOSAL_DRAFTED
+  PROPOSAL_SENT
+  PROPOSAL_VIEWED
+  PROPOSAL_ACCEPTED
+  PROPOSAL_DECLINED
+  HANDOFF_STARTED
+  HANDOFF_COMPLETED
+  SEQUENCE_ENROLLED
+  SEQUENCE_EXITED
+  ARCHIVED
+  OTHER
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Users / Auth
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id         String   @id @default(cuid())
+  firstName  String   @map("first_name")
+  lastName   String   @map("last_name")
+  email      String   @unique
+  role       UserRole @default(SALES)
+  isActive   Boolean  @default(true) @map("is_active")
+  timezone   String   @default("America/New_York")
+  // TODO: external auth subject (Clerk user id or NextAuth account key)
+  externalId String?  @unique @map("external_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  ownedLeads        Lead[]             @relation("LeadOwner")
+  actedPipelineEvts PipelineEvent[]    @relation("PipelineEventActor")
+  authoredNotes     LeadNote[]         @relation("NoteAuthor")
+  assignedTasks     Task[]             @relation("TaskAssignee")
+  ruleUpdates       RuleConfig[]       @relation("RuleUpdatedBy")
+  marketingSpend    MarketingSpend[]   @relation("SpendCreatedBy")
+
+  @@index([role, isActive])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Leads
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Lead {
+  id                       String                 @id @default(cuid())
+  firstName                String?                @map("first_name")
+  lastName                 String?                @map("last_name")
+  fullName                 String?                @map("full_name")
+  email                    String?
+  emailNormalized          String?                @map("email_normalized")
+  phone                    String?
+  phoneE164                String?                @map("phone_e164")
+  companyName              String?                @map("company_name")
+  websiteUrl               String?                @map("website_url")
+  airbnbOrListingUrl       String?                @map("airbnb_or_listing_url")
+  preferredContactMethod   PreferredContactMethod @default(ANY) @map("preferred_contact_method")
+
+  // Attribution
+  source                   LeadSource             @default(WEBSITE)
+  sourceDetail             String?                @map("source_detail")
+  referralSource           String?                @map("referral_source")
+  campaignName             String?                @map("campaign_name")
+  adGroup                  String?                @map("ad_group")
+  keyword                  String?
+  utmSource                String?                @map("utm_source")
+  utmMedium                String?                @map("utm_medium")
+  utmCampaign              String?                @map("utm_campaign")
+  utmTerm                  String?                @map("utm_term")
+  utmContent               String?                @map("utm_content")
+
+  // Qualification inputs
+  niche                    Niche                  @default(UNKNOWN)
+  fitType                  FitType                @default(UNKNOWN) @map("fit_type")
+  serviceInterest          ServiceInterest        @default(UNSURE) @map("service_interest")
+  annualRevenueRange       AnnualRevenueRange     @default(UNKNOWN) @map("annual_revenue_range")
+  annualProfitRange        AnnualProfitRange      @default(UNKNOWN) @map("annual_profit_range")
+  taxesPaidLastYearRange   TaxesPaidRange         @default(UNKNOWN) @map("taxes_paid_last_year_range")
+  payrollFlag              Boolean                @default(false) @map("payroll_flag")
+  w2IncomeFlag             Boolean                @default(false) @map("w2_income_flag")
+  otherBusinessIncomeFlag  Boolean                @default(false) @map("other_business_income_flag")
+  propertyCount            PropertyCountBucket    @default(UNKNOWN) @map("property_count")
+  statesOfOperation        String[]               @default([]) @map("states_of_operation")
+  urgency                  UrgencyLevel           @default(UNKNOWN)
+  currentAdvisorFlag       Boolean                @default(false) @map("current_advisor_flag")
+  painPoint                String?                @map("pain_point")
+  desiredStartDate         DateTime?              @map("desired_start_date")
+  notes                    String?
+
+  // Pipeline state
+  status                   LeadStatus             @default(ACTIVE)
+  pipelineStage            PipelineStage          @default(NEW_LEAD) @map("pipeline_stage")
+  ownerUserId              String?                @map("owner_user_id")
+  owner                    User?                  @relation("LeadOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+
+  // Scoring
+  leadScore                Int                    @default(0) @map("lead_score")
+  leadGrade                LeadGrade?             @map("lead_grade")
+  qualificationStatus      QualificationStatus    @default(UNREVIEWED) @map("qualification_status")
+  estimatedAnnualValue     Decimal?               @map("estimated_annual_value") @db.Decimal(12, 2)
+  disqualificationReason   String?                @map("disqualification_reason")
+  lostReasonId             String?                @map("lost_reason_id")
+  lostReason               LostReason?            @relation(fields: [lostReasonId], references: [id], onDelete: SetNull)
+
+  // Activity timestamps (denormalized for fast filtering/sorting)
+  lastContactedAt          DateTime?              @map("last_contacted_at")
+  nextActionAt             DateTime?              @map("next_action_at")
+  nextActionType           TaskType?              @map("next_action_type")
+  lastSourceTouchAt        DateTime?              @map("last_source_touch_at")
+
+  createdAt                DateTime               @default(now()) @map("created_at")
+  updatedAt                DateTime               @updatedAt @map("updated_at")
+  archivedAt               DateTime?              @map("archived_at")
+
+  submissions        LeadSubmission[]
+  scoreBreakdowns    LeadScoreBreakdown[]
+  pipelineEvents     PipelineEvent[]
+  noteEntries        LeadNote[]
+  tasks              Task[]
+  communications     Communication[]
+  sequences          SequenceEnrollment[]
+  proposals          Proposal[]
+  handoffs           ClientHandoff[]
+  mergedFromLeads    LeadMerge[]              @relation("LeadMergeTarget")
+  mergedIntoLead     LeadMerge[]              @relation("LeadMergeSource")
+
+  @@index([pipelineStage, status])
+  @@index([qualificationStatus, leadScore])
+  @@index([ownerUserId, pipelineStage])
+  @@index([source, createdAt])
+  @@index([emailNormalized])
+  @@index([phoneE164])
+  @@index([createdAt])
+  @@map("leads")
+}
+
+model LeadSubmission {
+  id              String    @id @default(cuid())
+  leadId          String    @map("lead_id")
+  lead            Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  sourceType      LeadSource @map("source_type")
+  payloadJson     Json      @map("payload_json")
+  ipAddress       String?   @map("ip_address")
+  userAgent       String?   @map("user_agent")
+  referer         String?
+  landingPageUrl  String?   @map("landing_page_url")
+  submittedAt     DateTime  @default(now()) @map("submitted_at")
+
+  @@index([leadId, submittedAt])
+  @@index([sourceType, submittedAt])
+  @@map("lead_submissions")
+}
+
+model LeadScoreBreakdown {
+  id                   String   @id @default(cuid())
+  leadId               String   @map("lead_id")
+  lead                 Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  revenueScore         Int      @default(0) @map("revenue_score")
+  taxScore             Int      @default(0) @map("tax_score")
+  serviceScore         Int      @default(0) @map("service_score")
+  fitScore             Int      @default(0) @map("fit_score")
+  urgencyScore         Int      @default(0) @map("urgency_score")
+  sourceScore          Int      @default(0) @map("source_score")
+  complexityScore      Int      @default(0) @map("complexity_score")
+  bookedConsultScore   Int      @default(0) @map("booked_consult_score")
+  totalScore           Int      @default(0) @map("total_score")
+  rulesVersion         String?  @map("rules_version")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  @@index([leadId, createdAt])
+  @@map("lead_score_breakdowns")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pipeline / Timeline
+// ─────────────────────────────────────────────────────────────────────────────
+
+model PipelineEvent {
+  id            String            @id @default(cuid())
+  leadId        String            @map("lead_id")
+  lead          Lead              @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  actorUserId   String?           @map("actor_user_id")
+  actor         User?             @relation("PipelineEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  eventType     PipelineEventType @map("event_type")
+  fromStage     PipelineStage?    @map("from_stage")
+  toStage       PipelineStage?    @map("to_stage")
+  note          String?
+  metadataJson  Json?             @map("metadata_json")
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  @@index([leadId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("pipeline_events")
+}
+
+model LeadNote {
+  id            String   @id @default(cuid())
+  leadId        String   @map("lead_id")
+  lead          Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  authorUserId  String   @map("author_user_id")
+  author        User     @relation("NoteAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+  body          String
+  noteType      NoteType @default(GENERAL) @map("note_type")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([leadId, createdAt])
+  @@map("lead_notes")
+}
+
+model Task {
+  id              String       @id @default(cuid())
+  leadId          String       @map("lead_id")
+  lead            Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assignedUserId  String?      @map("assigned_user_id")
+  assignedUser    User?        @relation("TaskAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  taskType        TaskType     @default(CALL) @map("task_type")
+  title           String
+  description     String?
+  dueAt           DateTime?    @map("due_at")
+  completedAt     DateTime?    @map("completed_at")
+  status          TaskStatus   @default(OPEN)
+  priority        TaskPriority @default(MEDIUM)
+  metadataJson    Json?        @map("metadata_json")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  @@index([leadId, status])
+  @@index([assignedUserId, status, dueAt])
+  @@index([dueAt, status])
+  @@map("tasks")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Messaging
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Communication {
+  id                  String                 @id @default(cuid())
+  leadId              String                 @map("lead_id")
+  lead                Lead                   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  channel             CommunicationChannel
+  direction           CommunicationDirection
+  templateKey         String?                @map("template_key")
+  subject             String?
+  bodyText            String                 @map("body_text")
+  externalMessageId   String?                @unique @map("external_message_id")
+  deliveryStatus      DeliveryStatus         @default(QUEUED) @map("delivery_status")
+  sentAt              DateTime?              @map("sent_at")
+  deliveredAt         DateTime?              @map("delivered_at")
+  openedAt            DateTime?              @map("opened_at")
+  clickedAt           DateTime?              @map("clicked_at")
+  repliedAt           DateTime?              @map("replied_at")
+  failedAt            DateTime?              @map("failed_at")
+  metadataJson        Json?                  @map("metadata_json")
+  createdAt           DateTime               @default(now()) @map("created_at")
+
+  @@index([leadId, createdAt])
+  @@index([channel, deliveryStatus])
+  @@map("communications")
+}
+
+model MessageTemplate {
+  id            String   @id @default(cuid())
+  key           String   @unique
+  name          String
+  channel       CommunicationChannel
+  category      String   // e.g. inquiry_confirmation, proposal_followup, breakup
+  subject       String?
+  bodyText      String   @map("body_text")
+  variables     String[] @default([])
+  isActive      Boolean  @default(true) @map("is_active")
+  version       Int      @default(1)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([channel, isActive])
+  @@map("message_templates")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Automation / Sequences
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SequenceEnrollment {
+  id                String              @id @default(cuid())
+  leadId            String              @map("lead_id")
+  lead              Lead                @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  sequenceKey       String              @map("sequence_key")
+  status            SequenceStatus      @default(ENROLLED)
+  enrolledAt        DateTime            @default(now()) @map("enrolled_at")
+  exitedAt          DateTime?           @map("exited_at")
+  exitReason        SequenceExitReason? @map("exit_reason")
+  currentStepIndex  Int                 @default(0) @map("current_step_index")
+  nextStepAt        DateTime?           @map("next_step_at")
+  metadataJson      Json?               @map("metadata_json")
+
+  @@unique([leadId, sequenceKey])
+  @@index([status, nextStepAt])
+  @@index([sequenceKey, status])
+  @@map("sequence_enrollments")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Proposals (Ignition-linked)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Proposal {
+  id                  String         @id @default(cuid())
+  leadId              String         @map("lead_id")
+  lead                Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  externalProposalId  String?        @unique @map("external_proposal_id")
+  proposalStatus      ProposalStatus @default(DRAFT) @map("proposal_status")
+  servicePackage      String?        @map("service_package")
+  monthlyValue        Decimal?       @map("monthly_value") @db.Decimal(12, 2)
+  annualValue         Decimal?       @map("annual_value") @db.Decimal(12, 2)
+  sentAt              DateTime?      @map("sent_at")
+  viewedAt            DateTime?      @map("viewed_at")
+  acceptedAt          DateTime?      @map("accepted_at")
+  declinedAt          DateTime?      @map("declined_at")
+  externalPayloadJson Json?          @map("external_payload_json")
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
+
+  handoffs            ClientHandoff[]
+
+  @@index([leadId, proposalStatus])
+  @@index([proposalStatus, sentAt])
+  @@map("proposals")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Handoff to Double / Keeper
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ClientHandoff {
+  id                  String            @id @default(cuid())
+  leadId              String            @map("lead_id")
+  lead                Lead              @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  proposalId          String?           @map("proposal_id")
+  proposal            Proposal?         @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+  destinationSystem   DestinationSystem @map("destination_system")
+  handoffStatus       HandoffStatus     @default(PENDING) @map("handoff_status")
+  payloadJson         Json              @map("payload_json")
+  externalClientId    String?           @map("external_client_id")
+  syncedAt            DateTime?         @map("synced_at")
+  errorMessage        String?           @map("error_message")
+  retries             Int               @default(0)
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  @@index([leadId, handoffStatus])
+  @@index([destinationSystem, handoffStatus])
+  @@map("client_handoffs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lost reasons (normalized)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model LostReason {
+  id       String  @id @default(cuid())
+  code     String  @unique
+  label    String
+  isActive Boolean @default(true) @map("is_active")
+  sortOrder Int    @default(0) @map("sort_order")
+
+  leads    Lead[]
+
+  @@map("lost_reasons")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Marketing spend / attribution
+// ─────────────────────────────────────────────────────────────────────────────
+
+model MarketingSpend {
+  id             String      @id @default(cuid())
+  date           DateTime    @db.Date
+  source         LeadSource
+  campaignName   String?     @map("campaign_name")
+  spendAmount    Decimal     @default(0) @map("spend_amount") @db.Decimal(12, 2)
+  clicks         Int         @default(0)
+  impressions    Int         @default(0)
+  leadsCount     Int         @default(0) @map("leads_count")
+  notes          String?
+  createdByUserId String?    @map("created_by_user_id")
+  createdBy      User?       @relation("SpendCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  @@unique([date, source, campaignName])
+  @@index([source, date])
+  @@map("marketing_spend")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin rules
+// ─────────────────────────────────────────────────────────────────────────────
+
+model RuleConfig {
+  id               String   @id @default(cuid())
+  key              String   @unique
+  valueJson        Json     @map("value_json")
+  description      String?
+  updatedByUserId  String?  @map("updated_by_user_id")
+  updatedBy        User?    @relation("RuleUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("rule_configs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Deduplication / merging
+// ─────────────────────────────────────────────────────────────────────────────
+
+model LeadMerge {
+  id            String   @id @default(cuid())
+  sourceLeadId  String   @map("source_lead_id")
+  targetLeadId  String   @map("target_lead_id")
+  sourceLead    Lead     @relation("LeadMergeSource", fields: [sourceLeadId], references: [id], onDelete: Cascade)
+  targetLead    Lead     @relation("LeadMergeTarget", fields: [targetLeadId], references: [id], onDelete: Cascade)
+  reason        String?
+  mergedAt      DateTime @default(now()) @map("merged_at")
+
+  @@unique([sourceLeadId])
+  @@index([targetLeadId])
+  @@map("lead_merges")
+}
