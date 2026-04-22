@@ -14,10 +14,40 @@ const barlow = Barlow({
 export const metadata: Metadata = {
   title: "FABBI CRM",
   description: "Internal operating system for FABBI's new business pipeline.",
+  // Explicit icon references so the manifest and <head> all point at the same
+  // assets served from /public (stable paths, no hashing).
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/apple-icon", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  // PWA-specific hints for iOS Safari. These make "Add to Home Screen" feel
+  // native: full-screen launch, branded status bar, correct app title.
+  appleWebApp: {
+    capable: true,
+    title: "FABBI",
+    statusBarStyle: "black-translucent",
+  },
+  // Tell iOS/Android this is a standalone app when launched from home screen.
+  applicationName: "FABBI",
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#07183a",
+  // Swapped to brand blue — what phones use to tint the status bar chrome
+  // when the PWA is launched standalone.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#005bf7" },
+    { media: "(prefers-color-scheme: dark)", color: "#07183a" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

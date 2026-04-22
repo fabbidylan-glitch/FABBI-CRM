@@ -3,6 +3,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { CommandPalette } from "@/components/command-palette";
+import { InstallAppBanner } from "@/components/install-app-banner";
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import { config } from "@/lib/config";
 import { syncClerkUser } from "@/lib/features/users/sync";
@@ -38,6 +39,7 @@ export async function Shell({ children, title }: { children: ReactNode; title: s
     <div className="flex min-h-screen bg-[#fafbfd]">
       <KeyboardShortcuts />
       <CommandPalette />
+      <InstallAppBanner />
       <aside className="relative hidden w-64 shrink-0 flex-col bg-gradient-sidebar px-4 py-6 text-white md:flex">
         {/* Subtle inner highlight along the right edge — the sort of detail that reads
             as "designed" even when the viewer can't articulate why. */}
