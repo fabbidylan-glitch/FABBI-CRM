@@ -34,8 +34,6 @@ type Props = {
   scopeSummary: string | null;
   discount: ProposalDiscount;
   signingUrl: string | null;
-  /** Hide the paste-URL field if Anchor outbound push is live (it'll auto-fill). */
-  anchorAutoPushEnabled: boolean;
   isEditable: boolean;
 };
 
@@ -51,7 +49,6 @@ export function EditableProposal({
   scopeSummary,
   discount,
   signingUrl,
-  anchorAutoPushEnabled,
   isEditable,
 }: Props) {
   const router = useRouter();
@@ -302,16 +299,16 @@ export function EditableProposal({
         onSave={saveDiscount}
       />
 
-      {/* Anchor signing URL — only shown when auto-push isn't configured, so
-          the rep can paste the URL from Anchor by hand before sending. */}
-      {!anchorAutoPushEnabled ? (
-        <SigningUrlEditor
-          value={signingUrl ?? ""}
-          isEditable={isEditable}
-          busy={busyId === "signingUrl"}
-          onSave={saveSigningUrl}
-        />
-      ) : null}
+      {/* Anchor signing URL — always shown. If Make auto-push is configured
+          and working, the URL will be pre-filled after send; if not (or
+          during setup), the rep pastes it manually. Either way it's
+          always visible and editable. */}
+      <SigningUrlEditor
+        value={signingUrl ?? ""}
+        isEditable={isEditable}
+        busy={busyId === "signingUrl"}
+        onSave={saveSigningUrl}
+      />
 
       {isEditable ? (
         <div className="flex items-center gap-2 border-t border-brand-hairline pt-3">
