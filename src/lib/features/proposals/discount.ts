@@ -22,8 +22,13 @@ export type DiscountResult = {
   monthly: number;
   /** Amount taken off the one-time subtotal. 0 if no discount or scope excludes one-time. */
   onetime: number;
-  /** Convenience — how the rep / client should see the discount ("10% off", "-$500"). */
+  /** Full label including magnitude — used in the CRM's inline preview:
+   *  "New client discount · 10% off" or just "-$500" when no name set. */
   label: string;
+  /** Plain label — no amount. Used in emails and invoices where the amount
+   *  is already shown in a right-aligned column; duplicating it there looks
+   *  clumsy ("-$500 ... -$500/mo"). Custom label if set, else "Discount". */
+  plainLabel: string;
   /** Convenience — the sum of monthly + onetime dollars saved. */
   totalDollars: number;
 };
@@ -38,7 +43,7 @@ export function computeDiscount(
   const hasAmount = d.discountAmount !== null && d.discountAmount !== undefined && d.discountAmount > 0;
 
   if (!hasPct && !hasAmount) {
-    return { monthly: 0, onetime: 0, label: "", totalDollars: 0 };
+    return { monthly: 0, onetime: 0, label: "", plainLabel: "", totalDollars: 0 };
   }
 
   let monthly = 0;
@@ -72,7 +77,8 @@ export function computeDiscount(
   onetime = Math.round(onetime * 100) / 100;
 
   const label = d.discountLabel ? `${d.discountLabel} · ${labelCore}` : labelCore;
-  return { monthly, onetime, label, totalDollars: monthly + onetime };
+  const plainLabel = d.discountLabel?.trim() || "Discount";
+  return { monthly, onetime, label, plainLabel, totalDollars: monthly + onetime };
 }
 
 /** Describe which bucket(s) the discount touches for UI copy. */

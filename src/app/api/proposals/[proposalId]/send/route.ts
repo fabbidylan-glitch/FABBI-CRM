@@ -198,7 +198,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
         discount:
           discountResult.totalDollars > 0
             ? {
-                label: discountResult.label,
+                label: discountResult.plainLabel,
                 monthly: discountResult.monthly,
                 onetime: discountResult.onetime,
               }
