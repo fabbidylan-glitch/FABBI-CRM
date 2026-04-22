@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
 import { config } from "@/lib/config";
 import { prisma } from "@/lib/db";
+import { sendClientWelcomeEmail } from "@/lib/messaging/welcome-email";
 import { getTemplate } from "@/lib/onboarding/templates";
 
 export const runtime = "nodejs";
@@ -87,7 +88,47 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ proposalI
     }),
   ]);
 
-  return NextResponse.json({ ok: true });
+  // Welcome email — best effort. If email isn't configured or the send fails
+  // we log it and continue; the proposal is already accepted and onboarding is
+  // live, so the rep can always resend manually.
+  let welcomeEmailStatus: "sent" | "skipped" | "failed" = "skipped";
+  let welcomeEmailError: string | null = null;
+  if (lead?.email) {
+    try {
+      const owner = lead.ownerUserId
+        ? await prisma.user.findUnique({ where: { id: lead.ownerUserId } })
+        : null;
+      const onboarding = await prisma.onboarding.findFirst({
+        where: { proposalId: proposal.id },
+        select: { id: true },
+      });
+      const portalUrl = onboarding ? `${config.appUrl}/onboarding/${onboarding.id}` : undefined;
+      await sendClientWelcomeEmail({
+        to: lead.email,
+        clientFirstName: lead.firstName ?? null,
+        companyName: lead.companyName ?? null,
+        monthlyFee: proposal.monthlyValue ? Number(proposal.monthlyValue) : null,
+        catchupFee: proposal.quote?.catchupQuote ? Number(proposal.quote.catchupQuote) : null,
+        taxFee: proposal.quote?.taxQuote ? Number(proposal.quote.taxQuote) : null,
+        templateKey,
+        onboardingManagerName: owner
+          ? `${owner.firstName ?? ""} ${owner.lastName ?? ""}`.trim()
+          : null,
+        onboardingManagerEmail: owner?.email ?? null,
+        portalUrl,
+      });
+      welcomeEmailStatus = "sent";
+    } catch (err) {
+      welcomeEmailStatus = "failed";
+      welcomeEmailError = err instanceof Error ? err.message : "Unknown error";
+      console.error("[welcome-email] failed", err);
+    }
+  }
+
+  return NextResponse.json({
+    ok: true,
+    welcomeEmail: { status: welcomeEmailStatus, error: welcomeEmailError },
+  });
 }
 
 function deriveOnboardingTemplate(proposal: { quote?: { scopingInputs: unknown } | null }): string {

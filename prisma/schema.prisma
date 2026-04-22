@@ -607,6 +607,7 @@ model Proposal {
   annualValue         Decimal?       @map("annual_value") @db.Decimal(12, 2)
   scopeSummary        String?        @map("scope_summary")
   declineReason       String?        @map("decline_reason")
+  signingUrl          String?        @map("signing_url")
   sentAt              DateTime?      @map("sent_at")
   viewedAt            DateTime?      @map("viewed_at")
   acceptedAt          DateTime?      @map("accepted_at")

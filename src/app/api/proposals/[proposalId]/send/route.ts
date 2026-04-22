@@ -5,6 +5,7 @@ import { z } from "zod";
 import { config } from "@/lib/config";
 import { prisma } from "@/lib/db";
 import { pushProposalToAnchor, type AnchorPushPayload } from "@/lib/messaging/anchor";
+import { sendProposalEmail } from "@/lib/messaging/proposal-email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
   const externalProposalId = proposal.externalProposalId ?? `crm:${proposal.id}`;
 
   let makeResponse: unknown = null;
+  let signingUrl: string | null = null;
   let pushSkipReason: string | null = parsed.skipAnchor
     ? "skipped_by_user"
     : config.anchorOutboundEnabled
@@ -115,6 +117,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
       );
     }
     makeResponse = result.makeResponse;
+
+    // Try to extract the Anchor signing URL from Make's response. The user's
+    // Make scenario should end with a Webhook Response module that returns
+    // JSON like { "signingUrl": "..." }. We accept a few common field names.
+    signingUrl = extractSigningUrl(makeResponse);
   }
 
   const now = new Date();
@@ -126,6 +133,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
         proposalStatus: "SENT",
         sentAt: now,
         externalProposalId,
+        signingUrl: signingUrl ?? undefined,
         externalPayloadJson:
           makeResponse !== null && makeResponse !== undefined
             ? (makeResponse as Prisma.InputJsonValue)
@@ -150,9 +158,76 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
     }),
   ]);
 
+  // Fire the client-facing proposal email if we have a signing URL and a
+  // client email. Best-effort — failure doesn't roll back the SENT status.
+  let proposalEmailStatus: "sent" | "skipped" | "failed" = "skipped";
+  let proposalEmailError: string | null = null;
+  if (signingUrl && proposal.lead.email) {
+    try {
+      const monthlyTotal = proposal.lineItems
+        .filter((li) => li.monthlyAmount && Number(li.monthlyAmount) > 0)
+        .reduce((sum, li) => sum + Number(li.monthlyAmount ?? 0), 0);
+      const onetimeTotal = proposal.lineItems
+        .filter((li) => li.onetimeAmount && Number(li.onetimeAmount) > 0)
+        .reduce((sum, li) => sum + Number(li.onetimeAmount ?? 0), 0);
+      await sendProposalEmail({
+        to: proposal.lead.email,
+        clientFirstName: proposal.lead.firstName ?? null,
+        companyName: proposal.lead.companyName ?? null,
+        monthlyTotal,
+        onetimeTotal,
+        scopeSummary: proposal.scopeSummary,
+        signingUrl,
+        sender: {
+          name: actor ? `${actor.firstName ?? ""} ${actor.lastName ?? ""}`.trim() : null,
+          email: actor?.email ?? null,
+        },
+      });
+      proposalEmailStatus = "sent";
+    } catch (err) {
+      proposalEmailStatus = "failed";
+      proposalEmailError = err instanceof Error ? err.message : "Unknown error";
+      console.error("[proposal-email] failed", err);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     pushedToAnchor: shouldPush,
     skipReason: pushSkipReason,
+    signingUrl,
+    proposalEmail: { status: proposalEmailStatus, error: proposalEmailError },
   });
+}
+
+/**
+ * Best-effort extraction of the Anchor signing URL from Make's response body.
+ * Make can be configured to return JSON via a "Webhook response" module at
+ * the end of the scenario. We check a few common field names the user might
+ * set up in that response.
+ */
+function extractSigningUrl(response: unknown): string | null {
+  if (!response) return null;
+  if (typeof response === "string") {
+    // Look for an http(s) URL in plain text
+    const match = response.match(/https?:\/\/[^\s"'<>]+/);
+    return match ? match[0] : null;
+  }
+  if (typeof response === "object") {
+    const obj = response as Record<string, unknown>;
+    const keys = ["signingUrl", "signing_url", "signUrl", "proposalUrl", "proposal_url", "url"];
+    for (const k of keys) {
+      const v = obj[k];
+      if (typeof v === "string" && v.startsWith("http")) return v;
+    }
+    // Nested — try common wrappers (e.g. { data: { signingUrl: ... } })
+    for (const wrapper of ["data", "proposal", "anchor"]) {
+      const nested = obj[wrapper];
+      if (nested && typeof nested === "object") {
+        const found = extractSigningUrl(nested);
+        if (found) return found;
+      }
+    }
+  }
+  return null;
 }
