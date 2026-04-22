@@ -68,17 +68,23 @@ export async function getDashboardKpis(): Promise<Kpis> {
 
       const consultsBookedThisMonth = consultsBookedLeads.length;
       const proposalsSent = proposalsSentLeads.length;
-      const wonThisMonth = wonLeads.length;
 
-      // Won ARR: sum estimatedAnnualValue for each distinct lead that won
-      // this month. If a lead has no value set it contributes $0.
+      // Won this month reflects current state: a lead that went WON then got
+      // reversed to LOST (e.g. test data, clawback) should NOT count. We
+      // filter the distinct-lead list against leads whose pipelineStage is
+      // still WON — the event said they won but the record says they're not
+      // anymore. Same filter drives wonArrThisMonth so the ARR matches.
       const wonLeadRecords =
         wonLeads.length > 0
           ? await prisma.lead.findMany({
-              where: { id: { in: wonLeads.map((l) => l.leadId) } },
+              where: {
+                id: { in: wonLeads.map((l) => l.leadId) },
+                pipelineStage: "WON",
+              },
               select: { estimatedAnnualValue: true },
             })
           : [];
+      const wonThisMonth = wonLeadRecords.length;
       const wonArrThisMonth = wonLeadRecords.reduce(
         (sum, l) => sum + (l.estimatedAnnualValue ? Number(l.estimatedAnnualValue) : 0),
         0

@@ -167,12 +167,62 @@ export async function getProposalsSeries(days = 30): Promise<DailySeries> {
   }));
 }
 
+/**
+ * Won-series uses the current-state filter (pipelineStage: WON) so reversed
+ * wins don't show up as phantom activity in the sparkline. Keeps the chart
+ * consistent with the "Won this month" KPI card.
+ */
 export async function getWonSeries(days = 30): Promise<DailySeries> {
-  return safeQuery("dashboard.series.won", () => stageSeries("WON", days), () => ({
-    values: new Array(days).fill(0),
-    total: 0,
-    prevTotal: 0,
-  }));
+  return safeQuery<DailySeries>(
+    "dashboard.series.won",
+    async () => {
+      const { starts, windowStart, windowEnd } = dayBuckets(days);
+      const prevStart = new Date(windowStart.getTime() - days * DAY_MS);
+
+      const [wonEvts, prevEvts] = await Promise.all([
+        prisma.pipelineEvent.findMany({
+          where: {
+            eventType: "STAGE_CHANGED",
+            toStage: "WON",
+            createdAt: { gte: windowStart, lt: windowEnd },
+          },
+          distinct: ["leadId"],
+          select: { leadId: true, createdAt: true },
+        }),
+        prisma.pipelineEvent.findMany({
+          where: {
+            eventType: "STAGE_CHANGED",
+            toStage: "WON",
+            createdAt: { gte: prevStart, lt: windowStart },
+          },
+          distinct: ["leadId"],
+          select: { leadId: true },
+        }),
+      ]);
+
+      const ids = Array.from(
+        new Set([...wonEvts.map((e) => e.leadId), ...prevEvts.map((e) => e.leadId)])
+      );
+      const stillWon = new Set<string>();
+      if (ids.length > 0) {
+        const rows = await prisma.lead.findMany({
+          where: { id: { in: ids }, pipelineStage: "WON" },
+          select: { id: true },
+        });
+        for (const r of rows) stillWon.add(r.id);
+      }
+
+      const filteredInWindow = wonEvts.filter((e) => stillWon.has(e.leadId));
+      const prevCount = prevEvts.filter((e) => stillWon.has(e.leadId)).length;
+
+      return {
+        values: bucketize(filteredInWindow.map((e) => e.createdAt), starts),
+        total: filteredInWindow.length,
+        prevTotal: prevCount,
+      };
+    },
+    () => ({ values: new Array(days).fill(0), total: 0, prevTotal: 0 })
+  );
 }
 
 /**
@@ -209,11 +259,14 @@ export async function getWonArrSeries(days = 30): Promise<DailySeries> {
         }),
       ]);
 
+      // Only count leads whose current pipelineStage is still WON — matches
+      // the "Won this month" KPI behavior so reversed wins drop out of the
+      // cumulative ARR curve.
       const ids = Array.from(new Set([...wonEvts.map((e) => e.leadId), ...prevEvts.map((e) => e.leadId)]));
       const valueMap = new Map<string, number>();
       if (ids.length > 0) {
         const rows = await prisma.lead.findMany({
-          where: { id: { in: ids } },
+          where: { id: { in: ids }, pipelineStage: "WON" },
           select: { id: true, estimatedAnnualValue: true },
         });
         for (const r of rows) {
