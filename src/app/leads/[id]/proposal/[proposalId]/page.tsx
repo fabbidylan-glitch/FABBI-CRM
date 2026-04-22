@@ -1,4 +1,5 @@
 import { Shell } from "@/components/shell";
+import { EditableProposal } from "@/components/editable-proposal";
 import { ProposalActions } from "@/components/proposal-actions";
 
 export const dynamic = "force-dynamic";
@@ -76,67 +77,36 @@ export default async function ProposalPage({
             <CardBody>
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-brand-navy">Scope of services</h3>
-                {proposal.quote ? (
-                  <span className="text-[11px] text-brand-muted">
-                    Complexity:{" "}
-                    <span className="font-semibold text-brand-navy">
-                      {proposal.quote.complexityLevel.replaceAll("_", " ")}
+                <div className="flex items-center gap-3 text-[11px] text-brand-muted">
+                  {proposal.proposalStatus === "DRAFT" ? (
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 ring-1 ring-inset ring-amber-200/80">
+                      Editable
                     </span>
-                  </span>
-                ) : null}
+                  ) : null}
+                  {proposal.quote ? (
+                    <span>
+                      Complexity:{" "}
+                      <span className="font-semibold text-brand-navy">
+                        {proposal.quote.complexityLevel.replaceAll("_", " ")}
+                      </span>
+                    </span>
+                  ) : null}
+                </div>
               </div>
 
-              {monthlyLines.length > 0 ? (
-                <>
-                  <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-muted">
-                    Monthly
-                  </div>
-                  <table className="w-full text-sm">
-                    <tbody>
-                      {monthlyLines.map((li) => (
-                        <tr key={li.id} className="border-b border-brand-hairline/50 last:border-none">
-                          <td className="py-2 text-brand-navy">{li.description}</td>
-                          <td className="w-32 py-2 text-right tabular-nums text-brand-navy">
-                            ${Number(li.monthlyAmount).toLocaleString()}/mo
-                          </td>
-                        </tr>
-                      ))}
-                      <tr className="border-t-2 border-brand-navy">
-                        <td className="pt-2 text-sm font-semibold text-brand-navy">Monthly total</td>
-                        <td className="pt-2 text-right text-base font-semibold tabular-nums text-brand-navy">
-                          ${monthlyTotal.toLocaleString()}/mo
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </>
-              ) : null}
-
-              {onetimeLines.length > 0 ? (
-                <div className="mt-6">
-                  <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-muted">
-                    One-time
-                  </div>
-                  <table className="w-full text-sm">
-                    <tbody>
-                      {onetimeLines.map((li) => (
-                        <tr key={li.id} className="border-b border-brand-hairline/50 last:border-none">
-                          <td className="py-2 text-brand-navy">{li.description}</td>
-                          <td className="w-32 py-2 text-right tabular-nums text-brand-navy">
-                            ${Number(li.onetimeAmount).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                      <tr className="border-t-2 border-brand-navy">
-                        <td className="pt-2 text-sm font-semibold text-brand-navy">One-time total</td>
-                        <td className="pt-2 text-right text-base font-semibold tabular-nums text-brand-navy">
-                          ${onetimeTotal.toLocaleString()}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
+              <EditableProposal
+                proposalId={proposal.id}
+                scopeSummary={proposal.scopeSummary}
+                isEditable={proposal.proposalStatus === "DRAFT" && canEdit}
+                items={proposal.lineItems.map((li) => ({
+                  id: li.id,
+                  kind: li.kind,
+                  description: li.description,
+                  monthlyAmount: li.monthlyAmount !== null ? Number(li.monthlyAmount) : null,
+                  onetimeAmount: li.onetimeAmount !== null ? Number(li.onetimeAmount) : null,
+                  quantity: li.quantity,
+                }))}
+              />
             </CardBody>
           </Card>
 
