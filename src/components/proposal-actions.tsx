@@ -88,9 +88,10 @@ export function ProposalActions({
               </>
             ) : (
               <>
-                <span className="font-semibold">No signing URL.</span> Paste the Anchor
-                signing URL in the scope card above, then send &mdash; the client will get
-                a branded email with the link.
+                <span className="font-semibold">Next:</span> click &ldquo;Create in
+                Anchor&rdquo; above to open Anchor with the scope pre-copied. After Anchor
+                sends the proposal, paste the signing URL in the scope card and mark sent
+                here.
               </>
             )}
           </div>

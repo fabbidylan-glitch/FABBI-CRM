@@ -37,6 +37,11 @@ export const config = {
   // proposal in Anchor. Inbound status updates still arrive via the separate
   // /api/public/anchor/webhook (see ANCHOR_WEBHOOK_SECRET).
   anchorOutboundEnabled: Boolean(process.env.ANCHOR_MAKE_WEBHOOK_URL),
+  /** Where the "Open in Anchor" button sends reps to create a new proposal.
+   *  Override if Anchor changes their URL pattern or you use a white-labeled
+   *  workspace domain. */
+  anchorNewProposalUrl:
+    process.env.ANCHOR_NEW_PROPOSAL_URL ?? "https://app.sayanchor.com/proposals/new",
   appUrl: process.env.APP_URL ?? "http://localhost:3000",
   firmName: process.env.FIRM_NAME ?? "FABBI",
 };

@@ -1,7 +1,9 @@
 import { Shell } from "@/components/shell";
 import { EditableProposal } from "@/components/editable-proposal";
+import { OpenInAnchorButton } from "@/components/open-in-anchor-button";
 import { ProposalActions } from "@/components/proposal-actions";
 import { computeDiscount } from "@/lib/features/proposals/discount";
+import { formatScopeForAnchor } from "@/lib/features/proposals/format-scope";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -45,6 +47,25 @@ export default async function ProposalPage({
   });
   const monthlyTotal = Math.max(0, monthlySubtotal - discountResult.monthly);
   const onetimeTotal = Math.max(0, onetimeSubtotal - discountResult.onetime);
+
+  // Pre-format the scope once on the server so the "Open in Anchor" button can
+  // copy it to the clipboard without any client-side formatting dependencies.
+  const anchorClipboardText = formatScopeForAnchor({
+    clientName: `${proposal.lead.firstName ?? ""} ${proposal.lead.lastName ?? ""}`.trim() || null,
+    companyName: proposal.lead.companyName ?? null,
+    scopeSummary: proposal.scopeSummary,
+    lineItems: proposal.lineItems.map((li) => ({
+      description: li.description,
+      monthlyAmount: li.monthlyAmount !== null ? Number(li.monthlyAmount) : null,
+      onetimeAmount: li.onetimeAmount !== null ? Number(li.onetimeAmount) : null,
+    })),
+    discount: {
+      label: proposal.discountLabel,
+      amount: proposal.discountAmount ? Number(proposal.discountAmount) : null,
+      pct: proposal.discountPct ? Number(proposal.discountPct) : null,
+      appliesTo: proposal.discountAppliesTo,
+    },
+  });
 
   return (
     <Shell title={`Proposal — ${proposal.lead.firstName} ${proposal.lead.lastName}`}>
@@ -172,6 +193,17 @@ export default async function ProposalPage({
               ) : null}
             </CardBody>
           </Card>
+
+          {proposal.proposalStatus === "DRAFT" && canEdit ? (
+            <Card>
+              <CardBody>
+                <OpenInAnchorButton
+                  scopeText={anchorClipboardText}
+                  anchorUrl={config.anchorNewProposalUrl}
+                />
+              </CardBody>
+            </Card>
+          ) : null}
 
           <Card>
             <CardBody>
