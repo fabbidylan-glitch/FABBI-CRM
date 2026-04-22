@@ -65,7 +65,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
   const externalProposalId = proposal.externalProposalId ?? `crm:${proposal.id}`;
 
   let makeResponse: unknown = null;
-  let signingUrl: string | null = null;
+  // Start from whatever's already on the proposal — the rep may have pasted an
+  // Anchor URL manually on the preview. If Anchor push succeeds below it'll
+  // overwrite this with the one Make returned.
+  let signingUrl: string | null = proposal.signingUrl ?? null;
   let pushSkipReason: string | null = parsed.skipAnchor
     ? "skipped_by_user"
     : config.anchorOutboundEnabled
@@ -140,7 +143,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
     // Try to extract the Anchor signing URL from Make's response. The user's
     // Make scenario should end with a Webhook Response module that returns
     // JSON like { "signingUrl": "..." }. We accept a few common field names.
-    signingUrl = extractSigningUrl(makeResponse);
+    // Falls back to whatever was already on the proposal (e.g., pasted manually).
+    signingUrl = extractSigningUrl(makeResponse) ?? signingUrl;
   }
 
   const now = new Date();

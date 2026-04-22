@@ -14,6 +14,8 @@ type Props = {
   declineReason: string | null;
   /** When true, the "Send" button will POST to Make → Anchor before marking sent. */
   anchorEnabled: boolean;
+  /** Whether the proposal has a signing URL (pasted by rep or auto-filled). Controls email firing. */
+  hasSigningUrl: boolean;
 };
 
 export function ProposalActions({
@@ -26,6 +28,7 @@ export function ProposalActions({
   declinedAt,
   declineReason,
   anchorEnabled,
+  hasSigningUrl,
 }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
@@ -68,18 +71,26 @@ export function ProposalActions({
             className={`rounded-md px-2.5 py-1.5 text-[11px] ring-1 ring-inset ${
               anchorEnabled
                 ? "bg-emerald-50 text-emerald-800 ring-emerald-200/80"
-                : "bg-amber-50 text-amber-800 ring-amber-200/80"
+                : hasSigningUrl
+                  ? "bg-emerald-50 text-emerald-800 ring-emerald-200/80"
+                  : "bg-amber-50 text-amber-800 ring-amber-200/80"
             }`}
           >
             {anchorEnabled ? (
               <>
                 <span className="font-semibold">Anchor push configured.</span> Send creates
-                the proposal in Anchor automatically.
+                the proposal in Anchor and emails the client automatically.
+              </>
+            ) : hasSigningUrl ? (
+              <>
+                <span className="font-semibold">Signing URL set.</span> Send will email the
+                client with the Anchor link as the &ldquo;Review &amp; sign&rdquo; button.
               </>
             ) : (
               <>
-                <span className="font-semibold">Anchor push not configured.</span> Create
-                the proposal in Anchor manually, then mark sent here.
+                <span className="font-semibold">No signing URL.</span> Paste the Anchor
+                signing URL in the scope card above, then send &mdash; the client will get
+                a branded email with the link.
               </>
             )}
           </div>

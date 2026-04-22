@@ -33,6 +33,9 @@ type Props = {
   items: LineItem[];
   scopeSummary: string | null;
   discount: ProposalDiscount;
+  signingUrl: string | null;
+  /** Hide the paste-URL field if Anchor outbound push is live (it'll auto-fill). */
+  anchorAutoPushEnabled: boolean;
   isEditable: boolean;
 };
 
@@ -42,7 +45,15 @@ type Props = {
  * optimistic feedback and totals stay in sync. After any mutation we
  * router.refresh() to pull the server-recomputed totals.
  */
-export function EditableProposal({ proposalId, items, scopeSummary, discount, isEditable }: Props) {
+export function EditableProposal({
+  proposalId,
+  items,
+  scopeSummary,
+  discount,
+  signingUrl,
+  anchorAutoPushEnabled,
+  isEditable,
+}: Props) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -141,6 +152,10 @@ export function EditableProposal({ proposalId, items, scopeSummary, discount, is
       },
       "discount"
     );
+  }
+
+  async function saveSigningUrl(next: string) {
+    await patchProposal({ signingUrl: next }, "signingUrl");
   }
 
   const monthlyItems = items.filter((i) => i.monthlyAmount !== null && i.monthlyAmount >= 0);
@@ -286,6 +301,17 @@ export function EditableProposal({ proposalId, items, scopeSummary, discount, is
         busy={busyId === "discount"}
         onSave={saveDiscount}
       />
+
+      {/* Anchor signing URL — only shown when auto-push isn't configured, so
+          the rep can paste the URL from Anchor by hand before sending. */}
+      {!anchorAutoPushEnabled ? (
+        <SigningUrlEditor
+          value={signingUrl ?? ""}
+          isEditable={isEditable}
+          busy={busyId === "signingUrl"}
+          onSave={saveSigningUrl}
+        />
+      ) : null}
 
       {isEditable ? (
         <div className="flex items-center gap-2 border-t border-brand-hairline pt-3">
@@ -572,6 +598,110 @@ function DiscountEditor({
         >
           {busy ? "Saving…" : "Apply discount"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+function SigningUrlEditor({
+  value,
+  isEditable,
+  busy,
+  onSave,
+}: {
+  value: string;
+  isEditable: boolean;
+  busy: boolean;
+  onSave: (v: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [editing, setEditing] = useState(false);
+
+  if (value && !editing) {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-md border border-brand-blue-soft/60 bg-brand-blue-tint/40 px-3 py-2">
+        <div className="min-w-0 flex-1 text-xs">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-brand-muted">
+            Anchor signing URL
+          </div>
+          <a
+            href={value}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-0.5 block truncate text-brand-blue hover:underline"
+          >
+            {value}
+          </a>
+        </div>
+        {isEditable ? (
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setDraft(value);
+                setEditing(true);
+              }}
+              className="rounded border border-brand-hairline bg-white px-2 py-1 text-[11px] font-medium text-brand-navy hover:bg-brand-blue-tint disabled:opacity-60"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onSave("")}
+              className="rounded border border-brand-hairline bg-white px-2 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+            >
+              Remove
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (!isEditable && !value) return null;
+
+  return (
+    <div className="space-y-2 rounded-md border border-amber-200/70 bg-amber-50/50 p-3">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-amber-800">
+        Anchor signing URL
+      </div>
+      <p className="text-[11px] text-brand-muted">
+        Create the proposal in Anchor, copy the signing link, and paste it here. It&rsquo;ll be
+        the &ldquo;Review &amp; sign&rdquo; button in the email we send the client.
+      </p>
+      <div className="flex items-center gap-2">
+        <input
+          type="url"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="https://app.sayanchor.com/engagements/..."
+          className="block w-full rounded-md border border-brand-hairline bg-white px-3 py-1.5 text-sm focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+        />
+        <button
+          type="button"
+          disabled={busy || !draft.trim()}
+          onClick={() => {
+            onSave(draft.trim());
+            setEditing(false);
+          }}
+          className="rounded-md bg-brand-blue px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-blue-dark disabled:opacity-60"
+        >
+          {busy ? "Saving…" : "Save"}
+        </button>
+        {editing ? (
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(value);
+              setEditing(false);
+            }}
+            className="rounded-md border border-brand-hairline bg-white px-3 py-1.5 text-xs font-medium text-brand-navy hover:bg-brand-blue-tint"
+          >
+            Cancel
+          </button>
+        ) : null}
       </div>
     </div>
   );

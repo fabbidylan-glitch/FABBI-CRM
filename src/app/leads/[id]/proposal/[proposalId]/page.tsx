@@ -107,6 +107,8 @@ export default async function ProposalPage({
                 proposalId={proposal.id}
                 scopeSummary={proposal.scopeSummary}
                 isEditable={proposal.proposalStatus === "DRAFT" && canEdit}
+                signingUrl={proposal.signingUrl}
+                anchorAutoPushEnabled={config.anchorOutboundEnabled}
                 discount={{
                   label: proposal.discountLabel,
                   amount: proposal.discountAmount ? Number(proposal.discountAmount) : null,
@@ -183,6 +185,7 @@ export default async function ProposalPage({
                 declinedAt={proposal.declinedAt ? proposal.declinedAt.toISOString() : null}
                 declineReason={proposal.declineReason ?? null}
                 anchorEnabled={config.anchorOutboundEnabled}
+                hasSigningUrl={Boolean(proposal.signingUrl)}
               />
             </CardBody>
           </Card>

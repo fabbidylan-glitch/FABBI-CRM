@@ -17,6 +17,16 @@ const schema = z.object({
   discountAmount: z.number().nonnegative().max(1_000_000).nullable().optional(),
   discountPct: z.number().nonnegative().max(100).nullable().optional(),
   discountAppliesTo: z.enum(["MONTHLY", "ONETIME", "BOTH"]).nullable().optional(),
+  // Anchor-hosted signing URL. Auto-populated by a successful Make push, or
+  // pasted manually by the rep if they created the proposal in Anchor by hand.
+  signingUrl: z
+    .string()
+    .trim()
+    .url()
+    .max(1000)
+    .nullable()
+    .optional()
+    .or(z.literal("")),
 });
 
 /** Edit proposal metadata (scope summary, service package label, discount).
@@ -58,6 +68,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ proposalI
     d.discountPct !== undefined ||
     d.discountAppliesTo !== undefined;
 
+  // Empty-string signingUrl is treated as "clear it".
+  const resolvedSigningUrl =
+    d.signingUrl === undefined
+      ? proposal.signingUrl
+      : d.signingUrl === "" || d.signingUrl === null
+        ? null
+        : d.signingUrl;
+
   await prisma.proposal.update({
     where: { id: proposalId },
     data: {
@@ -70,6 +88,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ proposalI
       discountPct: d.discountPct === undefined ? proposal.discountPct : d.discountPct,
       discountAppliesTo:
         d.discountAppliesTo === undefined ? proposal.discountAppliesTo : d.discountAppliesTo,
+      signingUrl: resolvedSigningUrl,
     },
   });
 
