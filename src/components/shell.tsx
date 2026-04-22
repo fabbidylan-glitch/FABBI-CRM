@@ -47,16 +47,19 @@ export async function Shell({ children, title }: { children: ReactNode; title: s
           aria-hidden
           className="pointer-events-none absolute inset-y-0 right-0 w-px bg-gradient-to-b from-white/0 via-white/10 to-white/0"
         />
-        <Link href="/" className="mb-8 ml-1 inline-flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-blue text-sm font-bold text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.18),0_4px_10px_-2px_rgb(0_91_247/0.5)]">
-            F
+        <Link href="/" className="mb-8 ml-1 inline-flex flex-col items-start gap-1.5">
+          <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-brand-blue-soft/80">
+            Internal CRM
           </span>
-          <div>
-            <div className="text-[10px] font-medium uppercase tracking-[0.22em] text-brand-blue-soft/80">
-              Internal CRM
-            </div>
-            <div className="-mt-0.5 text-lg font-semibold tracking-tight text-white">FABBI</div>
-          </div>
+          {/* The Webflow wordmark is authored in brand blue; brightness(0) +
+              invert flips it to pure white for the dark sidebar without
+              needing a second asset. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/fabbi-logo.svg"
+            alt="FABBI"
+            className="h-6 w-auto [filter:brightness(0)_invert(1)]"
+          />
         </Link>
 
         <ActiveNav items={NAV} variant="sidebar" />
@@ -95,11 +98,12 @@ export async function Shell({ children, title }: { children: ReactNode; title: s
         <header className="sticky top-0 z-20 border-b border-brand-hairline/70 bg-white/70 backdrop-blur-xl">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 md:px-6">
             <div className="flex items-center gap-3">
-              <Link href="/" className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-blue text-sm font-bold text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.18)] md:hidden">
-                F
+              <Link href="/" className="md:hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/fabbi-logo.svg" alt="FABBI" className="h-5 w-auto" />
               </Link>
               <div>
-                <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-brand-muted">
+                <div className="hidden text-[10px] font-medium uppercase tracking-[0.18em] text-brand-muted md:block">
                   FABBI CRM
                 </div>
                 <h1 className="text-[17px] font-semibold leading-tight tracking-[-0.01em] text-brand-navy md:text-[19px]">

@@ -88,9 +88,14 @@ export function InstallAppBanner() {
       <div className="flex items-start gap-3">
         <span
           aria-hidden
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-blue to-brand-blue-dark text-sm font-bold text-white shadow-[inset_0_1px_0_0_rgb(255_255_255/0.2)]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-blue to-brand-blue-dark shadow-[inset_0_1px_0_0_rgb(255_255_255/0.2)]"
         >
-          F
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/icon.svg"
+            alt=""
+            className="h-5 w-5 [filter:brightness(0)_invert(1)]"
+          />
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-semibold text-brand-navy">Install FABBI</div>
