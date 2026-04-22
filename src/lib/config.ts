@@ -32,6 +32,11 @@ export const config = {
     process.env.TELNYX_API_KEY &&
       (process.env.TELNYX_SMS_FROM || process.env.TELNYX_MESSAGING_PROFILE_ID)
   ),
+  // Outbound proposal push to Anchor via Make.com. When enabled, "Send via
+  // Anchor" POSTs the proposal payload to this webhook and Make creates the
+  // proposal in Anchor. Inbound status updates still arrive via the separate
+  // /api/public/anchor/webhook (see ANCHOR_WEBHOOK_SECRET).
+  anchorOutboundEnabled: Boolean(process.env.ANCHOR_MAKE_WEBHOOK_URL),
   appUrl: process.env.APP_URL ?? "http://localhost:3000",
   firmName: process.env.FIRM_NAME ?? "FABBI",
 };

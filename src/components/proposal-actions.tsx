@@ -12,6 +12,8 @@ type Props = {
   acceptedAt: string | null;
   declinedAt: string | null;
   declineReason: string | null;
+  /** When true, the "Send" button will POST to Make → Anchor before marking sent. */
+  anchorEnabled: boolean;
 };
 
 export function ProposalActions({
@@ -23,19 +25,21 @@ export function ProposalActions({
   acceptedAt,
   declinedAt,
   declineReason,
+  anchorEnabled,
 }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [showSkipAnchor, setShowSkipAnchor] = useState(false);
 
-  async function action(kind: "send" | "accept" | "decline", reason?: string) {
+  async function action(kind: "send" | "accept" | "decline", body?: Record<string, unknown>) {
     setLoading(kind);
     setErr(null);
     try {
       const res = await fetch(`/api/proposals/${proposalId}/${kind}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: reason ? JSON.stringify({ reason }) : JSON.stringify({}),
+        body: body ? JSON.stringify(body) : JSON.stringify({}),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -59,14 +63,50 @@ export function ProposalActions({
       </div>
 
       {status === "DRAFT" ? (
-        <button
-          type="button"
-          disabled={!canEdit || loading !== null}
-          onClick={() => action("send")}
-          className="w-full rounded-md bg-brand-blue px-3 py-2 text-xs font-semibold text-white shadow-btn-primary transition hover:bg-brand-blue-dark disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {loading === "send" ? "Sending…" : "Mark as sent"}
-        </button>
+        <>
+          <div
+            className={`rounded-md px-2.5 py-1.5 text-[11px] ring-1 ring-inset ${
+              anchorEnabled
+                ? "bg-emerald-50 text-emerald-800 ring-emerald-200/80"
+                : "bg-amber-50 text-amber-800 ring-amber-200/80"
+            }`}
+          >
+            {anchorEnabled ? (
+              <>
+                <span className="font-semibold">Anchor push configured.</span> Send creates
+                the proposal in Anchor automatically.
+              </>
+            ) : (
+              <>
+                <span className="font-semibold">Anchor push not configured.</span> Create
+                the proposal in Anchor manually, then mark sent here.
+              </>
+            )}
+          </div>
+          <button
+            type="button"
+            disabled={!canEdit || loading !== null}
+            onClick={() => action("send", showSkipAnchor ? { skipAnchor: true } : {})}
+            className="w-full rounded-md bg-brand-blue px-3 py-2 text-xs font-semibold text-white shadow-btn-primary transition hover:bg-brand-blue-dark disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading === "send"
+              ? "Sending…"
+              : anchorEnabled && !showSkipAnchor
+                ? "Send via Anchor"
+                : "Mark as sent"}
+          </button>
+          {anchorEnabled ? (
+            <label className="flex cursor-pointer items-center gap-2 text-[11px] text-brand-muted">
+              <input
+                type="checkbox"
+                checked={showSkipAnchor}
+                onChange={(e) => setShowSkipAnchor(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-brand-hairline text-brand-blue focus:ring-brand-blue"
+              />
+              Skip Anchor push (I already created it there)
+            </label>
+          ) : null}
+        </>
       ) : null}
 
       {(status === "SENT" || status === "VIEWED") ? (
@@ -79,7 +119,11 @@ export function ProposalActions({
           >
             {loading === "accept" ? "Accepting…" : "Mark accepted"}
           </button>
-          <DeclineBlock disabled={!canEdit || loading !== null} onDecline={(r) => action("decline", r)} loading={loading === "decline"} />
+          <DeclineBlock
+            disabled={!canEdit || loading !== null}
+            onDecline={(r) => action("decline", { reason: r })}
+            loading={loading === "decline"}
+          />
         </>
       ) : null}
 

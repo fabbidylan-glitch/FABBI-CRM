@@ -192,6 +192,7 @@ export default async function ProposalPage({
                 acceptedAt={proposal.acceptedAt ? proposal.acceptedAt.toISOString() : null}
                 declinedAt={proposal.declinedAt ? proposal.declinedAt.toISOString() : null}
                 declineReason={proposal.declineReason ?? null}
+                anchorEnabled={config.anchorOutboundEnabled}
               />
             </CardBody>
           </Card>
