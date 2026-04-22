@@ -127,7 +127,6 @@ export default async function ProposalPage({
                 proposalId={proposal.id}
                 scopeSummary={proposal.scopeSummary}
                 isEditable={proposal.proposalStatus === "DRAFT" && canEdit}
-                signingUrl={proposal.signingUrl}
                 discount={{
                   label: proposal.discountLabel,
                   amount: proposal.discountAmount ? Number(proposal.discountAmount) : null,
