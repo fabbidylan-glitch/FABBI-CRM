@@ -2,6 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { SendToClientModal } from "@/components/send-to-client-modal";
+
+type QuickPasteField = { label: string; value: string; preview?: string };
 
 type Props = {
   proposalId: string;
@@ -12,10 +15,14 @@ type Props = {
   acceptedAt: string | null;
   declinedAt: string | null;
   declineReason: string | null;
-  /** When true, the "Send" button will POST to Make → Anchor before marking sent. */
-  anchorEnabled: boolean;
-  /** Whether the proposal has a signing URL (pasted by rep or auto-filled). Controls email firing. */
-  hasSigningUrl: boolean;
+  signingUrl: string | null;
+  clientName: string;
+  clientEmail: string | null;
+  /** Pre-formatted scope text copied to clipboard when "Open Anchor" is clicked. */
+  scopeText: string;
+  anchorUrl: string;
+  /** Fields the rep may want to copy one-at-a-time into Anchor's form. */
+  quickPasteFields: QuickPasteField[];
 };
 
 export function ProposalActions({
@@ -27,15 +34,19 @@ export function ProposalActions({
   acceptedAt,
   declinedAt,
   declineReason,
-  anchorEnabled,
-  hasSigningUrl,
+  signingUrl,
+  clientName,
+  clientEmail,
+  scopeText,
+  anchorUrl,
+  quickPasteFields,
 }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [showSkipAnchor, setShowSkipAnchor] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
 
-  async function action(kind: "send" | "accept" | "decline", body?: Record<string, unknown>) {
+  async function action(kind: "accept" | "decline", body?: Record<string, unknown>) {
     setLoading(kind);
     setErr(null);
     try {
@@ -67,62 +78,26 @@ export function ProposalActions({
 
       {status === "DRAFT" ? (
         <>
-          <div
-            className={`rounded-md px-2.5 py-1.5 text-[11px] ring-1 ring-inset ${
-              anchorEnabled
-                ? "bg-emerald-50 text-emerald-800 ring-emerald-200/80"
-                : hasSigningUrl
-                  ? "bg-emerald-50 text-emerald-800 ring-emerald-200/80"
-                  : "bg-amber-50 text-amber-800 ring-amber-200/80"
-            }`}
-          >
-            {anchorEnabled ? (
-              <>
-                <span className="font-semibold">Anchor push configured.</span> Send creates
-                the proposal in Anchor and emails the client automatically.
-              </>
-            ) : hasSigningUrl ? (
-              <>
-                <span className="font-semibold">Signing URL set.</span> Send will email the
-                client with the Anchor link as the &ldquo;Review &amp; sign&rdquo; button.
-              </>
-            ) : (
-              <>
-                <span className="font-semibold">Next:</span> click &ldquo;Create in
-                Anchor&rdquo; above to open Anchor with the scope pre-copied. After Anchor
-                sends the proposal, paste the signing URL in the scope card and mark sent
-                here.
-              </>
-            )}
-          </div>
           <button
             type="button"
-            disabled={!canEdit || loading !== null}
-            onClick={() => action("send", showSkipAnchor ? { skipAnchor: true } : {})}
-            className="w-full rounded-md bg-brand-blue px-3 py-2 text-xs font-semibold text-white shadow-btn-primary transition hover:bg-brand-blue-dark disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={!canEdit}
+            onClick={() => setModalOpen(true)}
+            className="w-full rounded-md bg-gradient-to-br from-brand-blue to-brand-blue-dark px-3 py-2.5 text-sm font-semibold text-white shadow-btn-primary transition hover:from-brand-blue-dark hover:to-brand-navy disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading === "send"
-              ? "Sending…"
-              : anchorEnabled && !showSkipAnchor
-                ? "Send via Anchor"
-                : "Mark as sent"}
+            Send to client →
           </button>
-          {anchorEnabled ? (
-            <label className="flex cursor-pointer items-center gap-2 text-[11px] text-brand-muted">
-              <input
-                type="checkbox"
-                checked={showSkipAnchor}
-                onChange={(e) => setShowSkipAnchor(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-brand-hairline text-brand-blue focus:ring-brand-blue"
-              />
-              Skip Anchor push (I already created it there)
-            </label>
-          ) : null}
+          <p className="text-[11px] text-brand-muted">
+            Opens Anchor for signing, then emails the client a FABBI-branded proposal with
+            the signing link.
+          </p>
         </>
       ) : null}
 
       {(status === "SENT" || status === "VIEWED") ? (
         <>
+          {signingUrl ? (
+            <SigningUrlChip url={signingUrl} />
+          ) : null}
           <button
             type="button"
             disabled={!canEdit || loading !== null}
@@ -140,20 +115,24 @@ export function ProposalActions({
       ) : null}
 
       {isTerminal ? (
-        <div className="rounded-md bg-slate-50 px-3 py-2 text-xs text-brand-muted">
-          {status === "ACCEPTED" ? (
-            <>
-              Accepted {acceptedAt ? new Date(acceptedAt).toLocaleDateString() : ""}. Onboarding record created — continue in the lead record.
-            </>
-          ) : status === "DECLINED" ? (
-            <>
-              Declined {declinedAt ? new Date(declinedAt).toLocaleDateString() : ""}
-              {declineReason ? `: ${declineReason}` : "."}
-            </>
-          ) : (
-            <>Withdrawn.</>
-          )}
-        </div>
+        <>
+          {signingUrl ? <SigningUrlChip url={signingUrl} /> : null}
+          <div className="rounded-md bg-slate-50 px-3 py-2 text-xs text-brand-muted">
+            {status === "ACCEPTED" ? (
+              <>
+                Accepted {acceptedAt ? new Date(acceptedAt).toLocaleDateString() : ""}.
+                Onboarding record created — continue in the lead record.
+              </>
+            ) : status === "DECLINED" ? (
+              <>
+                Declined {declinedAt ? new Date(declinedAt).toLocaleDateString() : ""}
+                {declineReason ? `: ${declineReason}` : "."}
+              </>
+            ) : (
+              <>Withdrawn.</>
+            )}
+          </div>
+        </>
       ) : null}
 
       {sentAt ? (
@@ -168,14 +147,64 @@ export function ProposalActions({
         </div>
       ) : null}
 
-      <div className="border-t border-brand-hairline pt-3">
+      {status === "DRAFT" ? (
+        <div className="border-t border-brand-hairline pt-3">
+          <a
+            href={`/leads/${leadId}/scope`}
+            className="block text-center text-[11px] text-brand-blue hover:underline"
+          >
+            Re-scope (creates new quote)
+          </a>
+        </div>
+      ) : null}
+
+      <SendToClientModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        proposalId={proposalId}
+        clientName={clientName}
+        scopeText={scopeText}
+        anchorUrl={anchorUrl}
+        initialSigningUrl={signingUrl ?? ""}
+        quickPasteFields={quickPasteFields}
+        clientEmail={clientEmail}
+      />
+    </div>
+  );
+}
+
+function SigningUrlChip({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-brand-blue-soft/60 bg-brand-blue-tint/40 px-2.5 py-1.5">
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-brand-muted">
+          Signing link
+        </div>
         <a
-          href={`/leads/${leadId}/scope`}
-          className="block text-center text-[11px] text-brand-blue hover:underline"
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-0.5 block truncate text-[11px] text-brand-blue hover:underline"
         >
-          Re-scope (creates new quote)
+          {url}
         </a>
       </div>
+      <button
+        type="button"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          } catch {
+            // no-op
+          }
+        }}
+        className="shrink-0 rounded border border-brand-hairline bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-brand-navy hover:bg-brand-blue-tint"
+      >
+        {copied ? "Copied" : "Copy"}
+      </button>
     </div>
   );
 }
