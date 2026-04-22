@@ -2,6 +2,7 @@ import { Shell } from "@/components/shell";
 import { EditableProposal } from "@/components/editable-proposal";
 import { OpenInAnchorButton } from "@/components/open-in-anchor-button";
 import { ProposalActions } from "@/components/proposal-actions";
+import { QuickPasteFields } from "@/components/quick-paste-fields";
 import { computeDiscount } from "@/lib/features/proposals/discount";
 import { formatScopeForAnchor } from "@/lib/features/proposals/format-scope";
 
@@ -196,11 +197,62 @@ export default async function ProposalPage({
 
           {proposal.proposalStatus === "DRAFT" && canEdit ? (
             <Card>
-              <CardBody>
+              <CardBody className="space-y-4">
                 <OpenInAnchorButton
                   scopeText={anchorClipboardText}
                   anchorUrl={config.anchorNewProposalUrl}
                 />
+                <div className="border-t border-brand-hairline pt-4">
+                  <QuickPasteFields
+                    fields={[
+                      {
+                        label: "Client first name",
+                        value: proposal.lead.firstName ?? "",
+                      },
+                      {
+                        label: "Client last name",
+                        value: proposal.lead.lastName ?? "",
+                      },
+                      {
+                        label: "Full name",
+                        value:
+                          `${proposal.lead.firstName ?? ""} ${proposal.lead.lastName ?? ""}`.trim(),
+                      },
+                      {
+                        label: "Email",
+                        value: proposal.lead.email ?? "",
+                      },
+                      {
+                        label: "Phone",
+                        value: proposal.lead.phone ?? "",
+                      },
+                      {
+                        label: "Company",
+                        value: proposal.lead.companyName ?? "",
+                      },
+                      {
+                        label: "Monthly total",
+                        value: String(monthlyTotal),
+                        preview: `$${monthlyTotal.toLocaleString()}/mo`,
+                      },
+                      {
+                        label: "One-time total",
+                        value: String(onetimeTotal),
+                        preview:
+                          onetimeTotal > 0 ? `$${onetimeTotal.toLocaleString()}` : "—",
+                      },
+                      {
+                        label: "Scope summary",
+                        value: proposal.scopeSummary ?? "",
+                      },
+                      {
+                        label: "Full scope (with line items)",
+                        value: anchorClipboardText,
+                        preview: "Click to copy full scope block",
+                      },
+                    ]}
+                  />
+                </div>
               </CardBody>
             </Card>
           ) : null}
