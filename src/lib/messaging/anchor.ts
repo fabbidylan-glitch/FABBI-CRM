@@ -34,9 +34,19 @@ export type AnchorPushPayload = {
   };
   servicePackage: string | null;
   scopeSummary: string | null;
+  /** Post-discount monthly total (what the client actually pays/mo). */
   monthlyTotal: number;
+  /** Post-discount one-time total. */
   onetimeTotal: number;
+  /** Annual value derived from the post-discount monthly total × 12. */
   annualValue: number;
+  /** Optional discount block — send this to Anchor so the rendered proposal
+   *  shows the same breakdown the rep saw in the CRM preview. */
+  discount: {
+    label: string;
+    monthlyAmount: number;
+    onetimeAmount: number;
+  } | null;
   lineItems: Array<{
     kind: string;
     description: string;

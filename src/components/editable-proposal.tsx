@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { computeDiscount } from "@/lib/features/proposals/discount";
 
 export type LineItem = {
   id: string;
@@ -20,10 +21,18 @@ export type LineItem = {
   quantity: number;
 };
 
+export type ProposalDiscount = {
+  label: string | null;
+  amount: number | null;
+  pct: number | null;
+  appliesTo: "MONTHLY" | "ONETIME" | "BOTH" | null;
+};
+
 type Props = {
   proposalId: string;
   items: LineItem[];
   scopeSummary: string | null;
+  discount: ProposalDiscount;
   isEditable: boolean;
 };
 
@@ -33,10 +42,29 @@ type Props = {
  * optimistic feedback and totals stay in sync. After any mutation we
  * router.refresh() to pull the server-recomputed totals.
  */
-export function EditableProposal({ proposalId, items, scopeSummary, isEditable }: Props) {
+export function EditableProposal({ proposalId, items, scopeSummary, discount, isEditable }: Props) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
+  async function patchProposal(body: Record<string, unknown>, busyKey: string) {
+    setBusyId(busyKey);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/proposals/${proposalId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) setErr(data?.error ?? "Failed to save");
+      else router.refresh();
+    } catch {
+      setErr("Network error");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   async function patchItem(itemId: string, body: Record<string, unknown>) {
     setBusyId(`patch:${itemId}`);
@@ -100,29 +128,36 @@ export function EditableProposal({ proposalId, items, scopeSummary, isEditable }
   }
 
   async function saveScope(next: string) {
-    setBusyId("scope");
-    setErr(null);
-    try {
-      const res = await fetch(`/api/proposals/${proposalId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scopeSummary: next }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) setErr(data?.error ?? "Failed to save");
-      else router.refresh();
-    } catch {
-      setErr("Network error");
-    } finally {
-      setBusyId(null);
-    }
+    await patchProposal({ scopeSummary: next }, "scope");
+  }
+
+  async function saveDiscount(next: ProposalDiscount) {
+    await patchProposal(
+      {
+        discountLabel: next.label,
+        discountAmount: next.amount,
+        discountPct: next.pct,
+        discountAppliesTo: next.appliesTo,
+      },
+      "discount"
+    );
   }
 
   const monthlyItems = items.filter((i) => i.monthlyAmount !== null && i.monthlyAmount >= 0);
   const onetimeItems = items.filter((i) => i.onetimeAmount !== null && i.onetimeAmount > 0);
 
-  const monthlyTotal = monthlyItems.reduce((s, i) => s + Number(i.monthlyAmount ?? 0), 0);
-  const onetimeTotal = onetimeItems.reduce((s, i) => s + Number(i.onetimeAmount ?? 0), 0);
+  const monthlySubtotal = monthlyItems.reduce((s, i) => s + Number(i.monthlyAmount ?? 0), 0);
+  const onetimeSubtotal = onetimeItems.reduce((s, i) => s + Number(i.onetimeAmount ?? 0), 0);
+
+  const discountResult = computeDiscount(monthlySubtotal, onetimeSubtotal, {
+    discountLabel: discount.label,
+    discountAmount: discount.amount,
+    discountPct: discount.pct,
+    discountAppliesTo: discount.appliesTo,
+  });
+  const monthlyTotal = Math.max(0, monthlySubtotal - discountResult.monthly);
+  const onetimeTotal = Math.max(0, onetimeSubtotal - discountResult.onetime);
+  const hasDiscount = discountResult.totalDollars > 0;
 
   return (
     <div className="space-y-6">
@@ -159,6 +194,26 @@ export function EditableProposal({ proposalId, items, scopeSummary, isEditable }
                   onDelete={() => deleteItem(li.id)}
                 />
               ))}
+              {discountResult.monthly > 0 ? (
+                <>
+                  <tr className="border-t border-brand-hairline">
+                    <td className="pt-2 text-xs text-brand-muted">Subtotal</td>
+                    <td className="pt-2 text-right text-sm tabular-nums text-brand-muted">
+                      ${monthlySubtotal.toLocaleString()}/mo
+                    </td>
+                    <td />
+                  </tr>
+                  <tr>
+                    <td className="py-1 text-xs text-emerald-700">
+                      {discountResult.label || "Discount"}
+                    </td>
+                    <td className="py-1 text-right text-sm tabular-nums text-emerald-700">
+                      −${discountResult.monthly.toLocaleString()}/mo
+                    </td>
+                    <td />
+                  </tr>
+                </>
+              ) : null}
               <tr className="border-t-2 border-brand-navy">
                 <td className="pt-2 text-sm font-semibold text-brand-navy">Monthly total</td>
                 <td className="pt-2 text-right text-base font-semibold tabular-nums text-brand-navy">
@@ -191,6 +246,26 @@ export function EditableProposal({ proposalId, items, scopeSummary, isEditable }
                   onDelete={() => deleteItem(li.id)}
                 />
               ))}
+              {discountResult.onetime > 0 ? (
+                <>
+                  <tr className="border-t border-brand-hairline">
+                    <td className="pt-2 text-xs text-brand-muted">Subtotal</td>
+                    <td className="pt-2 text-right text-sm tabular-nums text-brand-muted">
+                      ${onetimeSubtotal.toLocaleString()}
+                    </td>
+                    <td />
+                  </tr>
+                  <tr>
+                    <td className="py-1 text-xs text-emerald-700">
+                      {discountResult.label || "Discount"}
+                    </td>
+                    <td className="py-1 text-right text-sm tabular-nums text-emerald-700">
+                      −${discountResult.onetime.toLocaleString()}
+                    </td>
+                    <td />
+                  </tr>
+                </>
+              ) : null}
               <tr className="border-t-2 border-brand-navy">
                 <td className="pt-2 text-sm font-semibold text-brand-navy">One-time total</td>
                 <td className="pt-2 text-right text-base font-semibold tabular-nums text-brand-navy">
@@ -202,6 +277,15 @@ export function EditableProposal({ proposalId, items, scopeSummary, isEditable }
           </table>
         </section>
       ) : null}
+
+      {/* Discount editor */}
+      <DiscountEditor
+        discount={discount}
+        hasDiscount={hasDiscount}
+        isEditable={isEditable}
+        busy={busyId === "discount"}
+        onSave={saveDiscount}
+      />
 
       {isEditable ? (
         <div className="flex items-center gap-2 border-t border-brand-hairline pt-3">
@@ -288,6 +372,205 @@ function EditableText({
           className="rounded-md bg-brand-blue px-2 py-1 text-[11px] font-semibold text-white hover:bg-brand-blue-dark"
         >
           Save
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DiscountEditor({
+  discount,
+  hasDiscount,
+  isEditable,
+  busy,
+  onSave,
+}: {
+  discount: ProposalDiscount;
+  hasDiscount: boolean;
+  isEditable: boolean;
+  busy: boolean;
+  onSave: (d: ProposalDiscount) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [mode, setMode] = useState<"percent" | "flat">(discount.pct ? "percent" : "flat");
+  const [label, setLabel] = useState(discount.label ?? "");
+  const [percent, setPercent] = useState<string>(discount.pct ? String(discount.pct) : "");
+  const [amount, setAmount] = useState<string>(discount.amount ? String(discount.amount) : "");
+  const [appliesTo, setAppliesTo] = useState<"MONTHLY" | "ONETIME" | "BOTH">(
+    discount.appliesTo ?? "BOTH"
+  );
+
+  function save() {
+    const pct = mode === "percent" ? (percent.trim() === "" ? null : Number(percent)) : null;
+    const amt = mode === "flat" ? (amount.trim() === "" ? null : Number(amount)) : null;
+    onSave({
+      label: label.trim() || null,
+      pct: pct && pct > 0 ? pct : null,
+      amount: amt && amt > 0 ? amt : null,
+      appliesTo,
+    });
+    setEditing(false);
+  }
+
+  function clear() {
+    setLabel("");
+    setPercent("");
+    setAmount("");
+    setAppliesTo("BOTH");
+    onSave({ label: null, pct: null, amount: null, appliesTo: null });
+    setEditing(false);
+  }
+
+  if (!hasDiscount && !editing) {
+    return isEditable ? (
+      <div className="border-t border-brand-hairline pt-3">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setEditing(true)}
+          className="rounded-md border border-brand-hairline bg-white px-3 py-1.5 text-xs font-medium text-brand-navy hover:border-brand-blue-soft hover:bg-brand-blue-tint disabled:opacity-60"
+        >
+          + Add discount
+        </button>
+      </div>
+    ) : null;
+  }
+
+  if (hasDiscount && !editing) {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-md border border-emerald-200/70 bg-emerald-50/50 px-3 py-2">
+        <div className="text-xs text-emerald-800">
+          <span className="font-semibold">
+            {discount.label || (discount.pct ? `${discount.pct}% discount` : "Discount")}
+          </span>
+          <span className="ml-2 text-emerald-700">
+            {discount.pct
+              ? `${discount.pct}% off`
+              : discount.amount
+                ? `−$${Number(discount.amount).toLocaleString()}`
+                : ""}
+            {discount.appliesTo && discount.appliesTo !== "BOTH"
+              ? ` · ${discount.appliesTo.toLowerCase()} only`
+              : ""}
+          </span>
+        </div>
+        {isEditable ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setEditing(true)}
+              className="rounded border border-brand-hairline bg-white px-2 py-1 text-[11px] font-medium text-brand-navy hover:bg-brand-blue-tint disabled:opacity-60"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={clear}
+              className="rounded border border-brand-hairline bg-white px-2 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+            >
+              Remove
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 rounded-md border border-brand-hairline bg-slate-50/40 p-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-muted">
+        Discount
+      </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <label className="block">
+          <span className="text-[11px] font-medium text-brand-muted">Label (shown to client)</span>
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder='"New client discount"'
+            className="mt-1 block w-full rounded-md border border-brand-hairline px-2 py-1.5 text-sm focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+          />
+        </label>
+        <label className="block">
+          <span className="text-[11px] font-medium text-brand-muted">Applies to</span>
+          <select
+            value={appliesTo}
+            onChange={(e) => setAppliesTo(e.target.value as typeof appliesTo)}
+            className="mt-1 block w-full rounded-md border border-brand-hairline bg-white px-2 py-1.5 text-sm focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+          >
+            <option value="BOTH">Monthly + One-time</option>
+            <option value="MONTHLY">Monthly only</option>
+            <option value="ONETIME">One-time only</option>
+          </select>
+        </label>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="inline-flex rounded-md border border-brand-hairline bg-white p-0.5">
+          <button
+            type="button"
+            onClick={() => setMode("percent")}
+            className={`rounded px-2 py-1 text-[11px] font-medium transition ${
+              mode === "percent" ? "bg-brand-navy text-white" : "text-brand-navy hover:bg-brand-blue-tint"
+            }`}
+          >
+            %
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("flat")}
+            className={`rounded px-2 py-1 text-[11px] font-medium transition ${
+              mode === "flat" ? "bg-brand-navy text-white" : "text-brand-navy hover:bg-brand-blue-tint"
+            }`}
+          >
+            $
+          </button>
+        </div>
+        {mode === "percent" ? (
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step={0.5}
+              value={percent}
+              onChange={(e) => setPercent(e.target.value)}
+              className="w-20 rounded-md border border-brand-hairline px-2 py-1.5 text-sm tabular-nums focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+              placeholder="10"
+            />
+            <span className="text-sm text-brand-navy">%</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-brand-navy">$</span>
+            <input
+              type="number"
+              min={0}
+              step={25}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-28 rounded-md border border-brand-hairline px-2 py-1.5 text-sm tabular-nums focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+              placeholder="500"
+            />
+          </div>
+        )}
+      </div>
+      <div className="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="rounded border border-brand-hairline bg-white px-2 py-1 text-[11px] font-medium text-brand-navy hover:bg-brand-blue-tint"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={save}
+          className="rounded bg-brand-blue px-3 py-1 text-[11px] font-semibold text-white hover:bg-brand-blue-dark disabled:opacity-60"
+        >
+          {busy ? "Saving…" : "Apply discount"}
         </button>
       </div>
     </div>

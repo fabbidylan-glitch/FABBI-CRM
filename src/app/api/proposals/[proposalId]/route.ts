@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { config } from "@/lib/config";
 import { prisma } from "@/lib/db";
+import { recomputeProposalTotals } from "@/lib/features/proposals/recompute";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,10 +11,17 @@ export const dynamic = "force-dynamic";
 const schema = z.object({
   scopeSummary: z.string().trim().max(2000).optional(),
   servicePackage: z.string().trim().max(80).nullable().optional(),
+  // Discount — setting any of these clears the others client-side, but the
+  // server is tolerant and will just store whatever was sent.
+  discountLabel: z.string().trim().max(80).nullable().optional(),
+  discountAmount: z.number().nonnegative().max(1_000_000).nullable().optional(),
+  discountPct: z.number().nonnegative().max(100).nullable().optional(),
+  discountAppliesTo: z.enum(["MONTHLY", "ONETIME", "BOTH"]).nullable().optional(),
 });
 
-/** Edit proposal metadata (scope summary, service package label). Line items
- *  have their own endpoints; totals are derived. Only editable while DRAFT. */
+/** Edit proposal metadata (scope summary, service package label, discount).
+ *  Line items have their own endpoints; totals are derived. Only editable
+ *  while DRAFT. */
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ proposalId: string }> }) {
   if (!config.dbEnabled || !config.authEnabled)
     return NextResponse.json({ error: "Database + auth required." }, { status: 503 });
@@ -43,16 +51,33 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ proposalI
       { status: 422 }
     );
 
+  const d = parsed.data;
+  const discountFieldsTouched =
+    d.discountLabel !== undefined ||
+    d.discountAmount !== undefined ||
+    d.discountPct !== undefined ||
+    d.discountAppliesTo !== undefined;
+
   await prisma.proposal.update({
     where: { id: proposalId },
     data: {
-      scopeSummary: parsed.data.scopeSummary ?? proposal.scopeSummary,
+      scopeSummary: d.scopeSummary ?? proposal.scopeSummary,
       servicePackage:
-        parsed.data.servicePackage === undefined
-          ? proposal.servicePackage
-          : parsed.data.servicePackage,
+        d.servicePackage === undefined ? proposal.servicePackage : d.servicePackage,
+      discountLabel: d.discountLabel === undefined ? proposal.discountLabel : d.discountLabel,
+      discountAmount:
+        d.discountAmount === undefined ? proposal.discountAmount : d.discountAmount,
+      discountPct: d.discountPct === undefined ? proposal.discountPct : d.discountPct,
+      discountAppliesTo:
+        d.discountAppliesTo === undefined ? proposal.discountAppliesTo : d.discountAppliesTo,
     },
   });
+
+  // Any change to the discount re-derives stored totals so the preview,
+  // pipeline KPIs, and Anchor payload all match.
+  if (discountFieldsTouched) {
+    await recomputeProposalTotals(proposalId);
+  }
 
   return NextResponse.json({ ok: true });
 }

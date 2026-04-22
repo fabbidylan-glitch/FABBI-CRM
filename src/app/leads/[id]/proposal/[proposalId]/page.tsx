@@ -1,6 +1,7 @@
 import { Shell } from "@/components/shell";
 import { EditableProposal } from "@/components/editable-proposal";
 import { ProposalActions } from "@/components/proposal-actions";
+import { computeDiscount } from "@/lib/features/proposals/discount";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -34,8 +35,16 @@ export default async function ProposalPage({
 
   const monthlyLines = proposal.lineItems.filter((li) => li.monthlyAmount && Number(li.monthlyAmount) > 0);
   const onetimeLines = proposal.lineItems.filter((li) => li.onetimeAmount && Number(li.onetimeAmount) > 0);
-  const monthlyTotal = monthlyLines.reduce((sum, li) => sum + Number(li.monthlyAmount ?? 0), 0);
-  const onetimeTotal = onetimeLines.reduce((sum, li) => sum + Number(li.onetimeAmount ?? 0), 0);
+  const monthlySubtotal = monthlyLines.reduce((sum, li) => sum + Number(li.monthlyAmount ?? 0), 0);
+  const onetimeSubtotal = onetimeLines.reduce((sum, li) => sum + Number(li.onetimeAmount ?? 0), 0);
+  const discountResult = computeDiscount(monthlySubtotal, onetimeSubtotal, {
+    discountLabel: proposal.discountLabel,
+    discountAmount: proposal.discountAmount ? Number(proposal.discountAmount) : null,
+    discountPct: proposal.discountPct ? Number(proposal.discountPct) : null,
+    discountAppliesTo: proposal.discountAppliesTo,
+  });
+  const monthlyTotal = Math.max(0, monthlySubtotal - discountResult.monthly);
+  const onetimeTotal = Math.max(0, onetimeSubtotal - discountResult.onetime);
 
   return (
     <Shell title={`Proposal — ${proposal.lead.firstName} ${proposal.lead.lastName}`}>
@@ -98,6 +107,12 @@ export default async function ProposalPage({
                 proposalId={proposal.id}
                 scopeSummary={proposal.scopeSummary}
                 isEditable={proposal.proposalStatus === "DRAFT" && canEdit}
+                discount={{
+                  label: proposal.discountLabel,
+                  amount: proposal.discountAmount ? Number(proposal.discountAmount) : null,
+                  pct: proposal.discountPct ? Number(proposal.discountPct) : null,
+                  appliesTo: proposal.discountAppliesTo,
+                }}
                 items={proposal.lineItems.map((li) => ({
                   id: li.id,
                   kind: li.kind,
@@ -133,6 +148,11 @@ export default async function ProposalPage({
               <div className="mt-2 text-3xl font-semibold tracking-tight tabular-nums text-brand-navy">
                 ${monthlyTotal.toLocaleString()}/mo
               </div>
+              {discountResult.totalDollars > 0 ? (
+                <div className="mt-1 text-[11px] font-medium text-emerald-700">
+                  {discountResult.label}
+                </div>
+              ) : null}
               {onetimeTotal > 0 ? (
                 <div className="mt-1 text-xs text-brand-muted">
                   + <span className="tabular-nums">${onetimeTotal.toLocaleString()}</span> one-time

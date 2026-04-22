@@ -245,6 +245,12 @@ enum ProposalStatus {
   EXPIRED
 }
 
+enum DiscountScope {
+  MONTHLY
+  ONETIME
+  BOTH
+}
+
 enum HandoffStatus {
   PENDING
   IN_PROGRESS
@@ -608,6 +614,15 @@ model Proposal {
   scopeSummary        String?        @map("scope_summary")
   declineReason       String?        @map("decline_reason")
   signingUrl          String?        @map("signing_url")
+
+  // Optional proposal-level discount. `discountPct` and `discountAmount` are
+  // mutually exclusive (UI enforces this). `discountAppliesTo` controls
+  // whether the discount reduces the monthly total, one-time total, or both.
+  discountLabel       String?         @map("discount_label")
+  discountAmount      Decimal?        @map("discount_amount") @db.Decimal(10, 2)
+  discountPct         Decimal?        @map("discount_pct") @db.Decimal(5, 2)
+  discountAppliesTo   DiscountScope?  @map("discount_applies_to")
+
   sentAt              DateTime?      @map("sent_at")
   viewedAt            DateTime?      @map("viewed_at")
   acceptedAt          DateTime?      @map("accepted_at")

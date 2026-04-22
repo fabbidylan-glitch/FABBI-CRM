@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { config } from "@/lib/config";
 import { prisma } from "@/lib/db";
+import { computeDiscount } from "@/lib/features/proposals/discount";
 import { pushProposalToAnchor, type AnchorPushPayload } from "@/lib/messaging/anchor";
 import { sendProposalEmail } from "@/lib/messaging/proposal-email";
 
@@ -71,14 +72,24 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
       ? null
       : "anchor_not_configured";
 
-  if (shouldPush) {
-    const monthlyTotal = proposal.lineItems
-      .filter((li) => li.monthlyAmount && Number(li.monthlyAmount) > 0)
-      .reduce((sum, li) => sum + Number(li.monthlyAmount ?? 0), 0);
-    const onetimeTotal = proposal.lineItems
-      .filter((li) => li.onetimeAmount && Number(li.onetimeAmount) > 0)
-      .reduce((sum, li) => sum + Number(li.onetimeAmount ?? 0), 0);
+  // Derive subtotals + discounted totals ONCE for both the Anchor payload and
+  // the client email below.
+  const monthlySubtotal = proposal.lineItems
+    .filter((li) => li.monthlyAmount && Number(li.monthlyAmount) > 0)
+    .reduce((sum, li) => sum + Number(li.monthlyAmount ?? 0), 0);
+  const onetimeSubtotal = proposal.lineItems
+    .filter((li) => li.onetimeAmount && Number(li.onetimeAmount) > 0)
+    .reduce((sum, li) => sum + Number(li.onetimeAmount ?? 0), 0);
+  const discountResult = computeDiscount(monthlySubtotal, onetimeSubtotal, {
+    discountLabel: proposal.discountLabel,
+    discountAmount: proposal.discountAmount ? Number(proposal.discountAmount) : null,
+    discountPct: proposal.discountPct ? Number(proposal.discountPct) : null,
+    discountAppliesTo: proposal.discountAppliesTo,
+  });
+  const monthlyTotal = Math.max(0, monthlySubtotal - discountResult.monthly);
+  const onetimeTotal = Math.max(0, onetimeSubtotal - discountResult.onetime);
 
+  if (shouldPush) {
     const payload: AnchorPushPayload = {
       externalProposalId,
       proposalInternalId: proposal.id,
@@ -95,6 +106,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
       monthlyTotal,
       onetimeTotal,
       annualValue: Math.round(monthlyTotal * 12),
+      discount:
+        discountResult.totalDollars > 0
+          ? {
+              label: discountResult.label,
+              monthlyAmount: discountResult.monthly,
+              onetimeAmount: discountResult.onetime,
+            }
+          : null,
       lineItems: proposal.lineItems.map((li) => ({
         kind: li.kind,
         description: li.description,
@@ -164,18 +183,22 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
   let proposalEmailError: string | null = null;
   if (signingUrl && proposal.lead.email) {
     try {
-      const monthlyTotal = proposal.lineItems
-        .filter((li) => li.monthlyAmount && Number(li.monthlyAmount) > 0)
-        .reduce((sum, li) => sum + Number(li.monthlyAmount ?? 0), 0);
-      const onetimeTotal = proposal.lineItems
-        .filter((li) => li.onetimeAmount && Number(li.onetimeAmount) > 0)
-        .reduce((sum, li) => sum + Number(li.onetimeAmount ?? 0), 0);
       await sendProposalEmail({
         to: proposal.lead.email,
         clientFirstName: proposal.lead.firstName ?? null,
         companyName: proposal.lead.companyName ?? null,
+        monthlySubtotal,
+        onetimeSubtotal,
         monthlyTotal,
         onetimeTotal,
+        discount:
+          discountResult.totalDollars > 0
+            ? {
+                label: discountResult.label,
+                monthly: discountResult.monthly,
+                onetime: discountResult.onetime,
+              }
+            : null,
         scopeSummary: proposal.scopeSummary,
         signingUrl,
         sender: {

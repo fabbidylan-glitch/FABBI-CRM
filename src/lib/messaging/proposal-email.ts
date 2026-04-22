@@ -15,8 +15,16 @@ export type ProposalEmailInput = {
   to: string;
   clientFirstName: string | null;
   companyName: string | null;
+  monthlySubtotal: number;
+  onetimeSubtotal: number;
   monthlyTotal: number;
   onetimeTotal: number;
+  /** Discount to show as a distinct line in the breakdown. */
+  discount?: {
+    label: string;
+    monthly: number;
+    onetime: number;
+  } | null;
   scopeSummary: string | null;
   signingUrl: string;
   sender: {
@@ -32,14 +40,38 @@ export async function sendProposalEmail(input: ProposalEmailInput) {
 
   const subject = `Your ${firm} proposal is ready`;
 
+  const hasDiscount = Boolean(
+    input.discount && (input.discount.monthly > 0 || input.discount.onetime > 0)
+  );
+
+  const priceLines: string[] = [];
+  if (hasDiscount && input.monthlyTotal >= 0 && input.monthlySubtotal > 0) {
+    priceLines.push(`Monthly subtotal: $${input.monthlySubtotal.toLocaleString()}/mo`);
+    if ((input.discount?.monthly ?? 0) > 0)
+      priceLines.push(`  ${input.discount!.label}: −$${input.discount!.monthly.toLocaleString()}/mo`);
+    priceLines.push(`Monthly total: $${input.monthlyTotal.toLocaleString()}/mo`);
+  } else if (input.monthlyTotal > 0) {
+    priceLines.push(`Monthly services: $${input.monthlyTotal.toLocaleString()}/mo`);
+  }
+  if (input.onetimeTotal > 0) {
+    if (hasDiscount && input.onetimeSubtotal > input.onetimeTotal) {
+      priceLines.push("");
+      priceLines.push(`One-time subtotal: $${input.onetimeSubtotal.toLocaleString()}`);
+      if ((input.discount?.onetime ?? 0) > 0)
+        priceLines.push(`  ${input.discount!.label}: −$${input.discount!.onetime.toLocaleString()}`);
+      priceLines.push(`One-time total: $${input.onetimeTotal.toLocaleString()}`);
+    } else {
+      priceLines.push(`One-time (catch-up + tax): $${input.onetimeTotal.toLocaleString()}`);
+    }
+  }
+
   const bodyText = [
     `Hi ${firstName},`,
     "",
     `Thanks for the conversation — here's the proposal we put together${input.companyName ? ` for ${input.companyName}` : ""}.`,
     "",
     ...(input.scopeSummary ? [`Scope: ${input.scopeSummary}`, ""] : []),
-    `Monthly services: $${input.monthlyTotal.toLocaleString()}/mo`,
-    ...(input.onetimeTotal > 0 ? [`One-time (catch-up + tax): $${input.onetimeTotal.toLocaleString()}`] : []),
+    ...priceLines,
     "",
     `You can review the full proposal and sign here:`,
     input.signingUrl,
@@ -68,11 +100,33 @@ export async function sendProposalEmail(input: ProposalEmailInput) {
       <div style="border:1px solid #e5ecf5;border-radius:8px;padding:16px;margin:0 0 24px;background:#fff;">
         ${input.scopeSummary ? `<div style="font-size:13px;color:#3f4956;margin-bottom:12px;">${input.scopeSummary}</div>` : ""}
         <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.14em;color:#758696;margin-bottom:6px;">Monthly</div>
-        <div style="font-size:22px;font-weight:600;color:#07183a;">$${input.monthlyTotal.toLocaleString()}<span style="font-size:14px;font-weight:400;color:#758696;"> /mo</span></div>
+        ${
+          hasDiscount && (input.discount?.monthly ?? 0) > 0
+            ? `<div style="font-size:13px;color:#758696;">
+                 Subtotal <span style="float:right;">$${input.monthlySubtotal.toLocaleString()}/mo</span>
+               </div>
+               <div style="font-size:13px;color:#047857;">
+                 ${input.discount!.label} <span style="float:right;">−$${input.discount!.monthly.toLocaleString()}/mo</span>
+               </div>
+               <div style="border-top:1px solid #e5ecf5;margin:8px 0 4px;"></div>
+               <div style="font-size:22px;font-weight:600;color:#07183a;">$${input.monthlyTotal.toLocaleString()}<span style="font-size:14px;font-weight:400;color:#758696;"> /mo</span></div>`
+            : `<div style="font-size:22px;font-weight:600;color:#07183a;">$${input.monthlyTotal.toLocaleString()}<span style="font-size:14px;font-weight:400;color:#758696;"> /mo</span></div>`
+        }
         ${
           input.onetimeTotal > 0
-            ? `<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.14em;color:#758696;margin:14px 0 6px;">One-time</div>
-               <div style="font-size:16px;font-weight:600;color:#07183a;">$${input.onetimeTotal.toLocaleString()}</div>`
+            ? `<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.14em;color:#758696;margin:16px 0 6px;">One-time</div>
+               ${
+                 hasDiscount && (input.discount?.onetime ?? 0) > 0
+                   ? `<div style="font-size:13px;color:#758696;">
+                        Subtotal <span style="float:right;">$${input.onetimeSubtotal.toLocaleString()}</span>
+                      </div>
+                      <div style="font-size:13px;color:#047857;">
+                        ${input.discount!.label} <span style="float:right;">−$${input.discount!.onetime.toLocaleString()}</span>
+                      </div>
+                      <div style="border-top:1px solid #e5ecf5;margin:8px 0 4px;"></div>
+                      <div style="font-size:16px;font-weight:600;color:#07183a;">$${input.onetimeTotal.toLocaleString()}</div>`
+                   : `<div style="font-size:16px;font-weight:600;color:#07183a;">$${input.onetimeTotal.toLocaleString()}</div>`
+               }`
             : ""
         }
       </div>
