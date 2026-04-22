@@ -31,6 +31,13 @@ type Props = {
  *   2. Paste the Anchor signing URL into the input
  *   3. Click "Send to client" — CRM saves URL, marks SENT, fires branded email
  */
+type EmailPreview = {
+  to: string;
+  subject: string;
+  bodyHtml: string;
+  bodyText: string;
+};
+
 export function SendToClientModal({
   open,
   onClose,
@@ -49,6 +56,12 @@ export function SendToClientModal({
   const [copiedScope, setCopiedScope] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showQuickPaste, setShowQuickPaste] = useState(false);
+  // Two-step flow: the rep first sees the "compose" view (steps 1-3), clicks
+  // Preview email → we fetch the rendered email → show preview view with Send
+  // now + Back buttons. preview === null means compose view; non-null means
+  // preview view.
+  const [preview, setPreview] = useState<EmailPreview | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -56,6 +69,7 @@ export function SendToClientModal({
       setErr(null);
       setCopiedScope(false);
       setShowQuickPaste(false);
+      setPreview(null);
     }
   }, [open, initialSigningUrl]);
 
@@ -91,6 +105,28 @@ export function SendToClientModal({
       );
     } catch {
       // no-op
+    }
+  }
+
+  async function loadPreview() {
+    setLoadingPreview(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/proposals/${proposalId}/preview-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signingUrl: url.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErr(data?.error ?? "Failed to load email preview");
+        return;
+      }
+      setPreview(data.email as EmailPreview);
+    } catch {
+      setErr("Network error loading preview");
+    } finally {
+      setLoadingPreview(false);
     }
   }
 
@@ -133,6 +169,7 @@ export function SendToClientModal({
   }
 
   const hasUrl = url.trim().length > 0;
+  const isPreviewMode = preview !== null;
 
   return (
     <div
@@ -143,15 +180,19 @@ export function SendToClientModal({
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-xl overflow-hidden rounded-2xl border border-brand-hairline bg-white shadow-card-hover"
+        className={`w-full ${isPreviewMode ? "max-w-2xl" : "max-w-xl"} overflow-hidden rounded-2xl border border-brand-hairline bg-white shadow-card-hover`}
       >
         <div className="flex items-start justify-between gap-4 border-b border-brand-hairline px-5 py-4">
           <div>
             <h2 className="text-sm font-semibold text-brand-navy">
-              Send proposal to {clientName || "client"}
+              {isPreviewMode
+                ? `Review email before sending`
+                : `Send proposal to ${clientName || "client"}`}
             </h2>
             <p className="mt-0.5 text-[11px] text-brand-muted">
-              Create the proposal in Anchor, paste the signing URL below, and send.
+              {isPreviewMode
+                ? `This is exactly what ${clientEmail ?? "the client"} will receive.`
+                : `Create the proposal in Anchor, paste the signing URL below, and preview.`}
             </p>
           </div>
           <button
@@ -164,7 +205,30 @@ export function SendToClientModal({
           </button>
         </div>
 
-        <div className="space-y-5 px-5 py-5">
+        {isPreviewMode ? (
+          <div className="px-5 py-5">
+            <dl className="mb-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+              <dt className="font-semibold text-brand-muted">To</dt>
+              <dd className="text-brand-navy">{preview.to}</dd>
+              <dt className="font-semibold text-brand-muted">Subject</dt>
+              <dd className="text-brand-navy">{preview.subject}</dd>
+            </dl>
+            <div className="overflow-hidden rounded-lg border border-brand-hairline">
+              <iframe
+                title="Proposal email preview"
+                srcDoc={preview.bodyHtml}
+                className="h-[520px] w-full bg-white"
+                sandbox=""
+              />
+            </div>
+            {err ? (
+              <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                {err}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="space-y-5 px-5 py-5">
           {/* Step 1 */}
           <div>
             <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-brand-muted">
@@ -284,25 +348,54 @@ export function SendToClientModal({
               {err}
             </div>
           ) : null}
-        </div>
+          </div>
+        )}
 
         <div className="flex items-center justify-end gap-2 border-t border-brand-hairline px-5 py-3">
-          <button
-            type="button"
-            disabled={sending}
-            onClick={onClose}
-            className="rounded-md border border-brand-hairline bg-white px-3 py-1.5 text-xs font-medium text-brand-navy hover:bg-brand-blue-tint disabled:opacity-60"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={sending}
-            onClick={onSend}
-            className="rounded-md bg-brand-blue px-4 py-1.5 text-xs font-semibold text-white shadow-btn-primary transition hover:bg-brand-blue-dark disabled:opacity-60"
-          >
-            {sending ? "Sending…" : "Send to client"}
-          </button>
+          {isPreviewMode ? (
+            <>
+              <button
+                type="button"
+                disabled={sending}
+                onClick={() => setPreview(null)}
+                className="rounded-md border border-brand-hairline bg-white px-3 py-1.5 text-xs font-medium text-brand-navy hover:bg-brand-blue-tint disabled:opacity-60"
+              >
+                ← Back to edit
+              </button>
+              <button
+                type="button"
+                disabled={sending}
+                onClick={onSend}
+                className="rounded-md bg-brand-blue px-4 py-1.5 text-xs font-semibold text-white shadow-btn-primary transition hover:bg-brand-blue-dark disabled:opacity-60"
+              >
+                {sending ? "Sending…" : "Send now"}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                disabled={sending || loadingPreview}
+                onClick={onClose}
+                className="rounded-md border border-brand-hairline bg-white px-3 py-1.5 text-xs font-medium text-brand-navy hover:bg-brand-blue-tint disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={sending || loadingPreview || !hasUrl}
+                onClick={loadPreview}
+                title={
+                  !hasUrl
+                    ? "Paste the Anchor signing URL to preview"
+                    : undefined
+                }
+                className="rounded-md bg-brand-blue px-4 py-1.5 text-xs font-semibold text-white shadow-btn-primary transition hover:bg-brand-blue-dark disabled:opacity-60"
+              >
+                {loadingPreview ? "Loading…" : "Preview email →"}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

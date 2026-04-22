@@ -33,7 +33,20 @@ export type ProposalEmailInput = {
   };
 };
 
-export async function sendProposalEmail(input: ProposalEmailInput) {
+export type RenderedProposalEmail = {
+  subject: string;
+  to: string;
+  bodyText: string;
+  bodyHtml: string;
+  replyTo?: string;
+};
+
+/**
+ * Pure-ish: build the email's subject/text/html from the proposal. Used both
+ * by the preview endpoint (renders HTML for the rep to review) and the
+ * actual send flow (passes the same content to Resend/Graph).
+ */
+export function renderProposalEmail(input: ProposalEmailInput): RenderedProposalEmail {
   const firstName = input.clientFirstName || "there";
   const firm = config.firmName || "FABBI";
   const senderName = input.sender.name || firm;
@@ -151,11 +164,18 @@ export async function sendProposalEmail(input: ProposalEmailInput) {
   </body>
 </html>`;
 
-  return sendEmail({
+  return {
     to: input.to,
     subject,
     bodyText,
     bodyHtml,
     replyTo: input.sender.email ?? undefined,
-  });
+  };
+}
+
+/** Build + send in one shot. Preview endpoints can call renderProposalEmail
+ *  directly to skip the send step. */
+export async function sendProposalEmail(input: ProposalEmailInput) {
+  const rendered = renderProposalEmail(input);
+  return sendEmail(rendered);
 }
