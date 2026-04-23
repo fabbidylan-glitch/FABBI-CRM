@@ -1,13 +1,20 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { exitEnrollment } from "@/lib/automation/engine";
 import { config } from "@/lib/config";
 import { prisma } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const schema = z.object({ reason: z.string().trim().min(1).max(2000) });
+// Decline requires BOTH a structured lost-reason code (so we can roll it up in
+// the dashboard) and the rep's free-text note explaining what happened. The
+// code is required; the free-text stays optional but capped.
+const schema = z.object({
+  lostReasonCode: z.string().trim().min(1, "Lost reason code is required").max(80),
+  reason: z.string().trim().max(2000).optional(),
+});
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId: string }> }) {
   if (!config.dbEnabled || !config.authEnabled)
@@ -26,7 +33,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
   const parsed = schema.safeParse(body);
   if (!parsed.success)
     return NextResponse.json(
-      { error: "Decline reason is required", issues: parsed.error.issues },
+      { error: "Lost reason required", issues: parsed.error.issues },
       { status: 422 }
     );
 
@@ -38,9 +45,26 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
       { status: 409 }
     );
 
+  const lostReason = await prisma.lostReason.findUnique({
+    where: { code: parsed.data.lostReasonCode },
+  });
+  if (!lostReason || !lostReason.isActive)
+    return NextResponse.json(
+      { error: `Unknown or inactive lost reason: ${parsed.data.lostReasonCode}` },
+      { status: 422 }
+    );
+
   const actor = await prisma.user.findFirst({ where: { externalId: session.userId } });
   const now = new Date();
   const lead = await prisma.lead.findUnique({ where: { id: proposal.leadId } });
+
+  // Compose a single human-readable note combining the structured reason
+  // label + the free-text explanation. Capped at 200 chars for pipeline event
+  // display but the raw strings are preserved on the proposal + lead rows.
+  const composedNote =
+    parsed.data.reason && parsed.data.reason.length > 0
+      ? `${lostReason.label} — ${parsed.data.reason}`
+      : lostReason.label;
 
   await prisma.$transaction([
     prisma.proposal.update({
@@ -48,12 +72,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
       data: {
         proposalStatus: "DECLINED",
         declinedAt: now,
-        declineReason: parsed.data.reason,
+        declineReason: composedNote,
       },
     }),
     prisma.lead.update({
       where: { id: proposal.leadId },
-      data: { pipelineStage: "LOST" },
+      data: { pipelineStage: "LOST", lostReasonId: lostReason.id },
     }),
     prisma.pipelineEvent.create({
       data: {
@@ -62,10 +86,21 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
         eventType: "PROPOSAL_DECLINED",
         fromStage: lead?.pipelineStage,
         toStage: "LOST",
-        note: `Proposal declined: ${parsed.data.reason}`.slice(0, 200),
+        note: `Proposal declined: ${composedNote}`.slice(0, 200),
       },
     }),
   ]);
+
+  // Exit any active proposal-followup sequence — no point in continuing the
+  // nudge cadence once we know they said no.
+  const enr = await prisma.sequenceEnrollment.findUnique({
+    where: { leadId_sequenceKey: { leadId: proposal.leadId, sequenceKey: "proposal_followup_v1" } },
+  });
+  if (enr && enr.status !== "EXITED" && enr.status !== "COMPLETED") {
+    await exitEnrollment(enr.id, "PROPOSAL_DECLINED").catch((err) =>
+      console.error("[proposal-decline] sequence exit failed", err)
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

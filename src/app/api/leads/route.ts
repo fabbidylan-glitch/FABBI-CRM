@@ -126,6 +126,8 @@ export async function POST(req: NextRequest) {
     payrollFlag: false,
     otherBusinessIncomeFlag: false,
     niche: input.niche,
+    salesChannels: [],
+    monthlyAdSpendRange: undefined,
   });
 
   const ownerUserId = input.ownerUserId ?? actor?.id ?? null;

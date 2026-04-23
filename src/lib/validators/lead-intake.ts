@@ -44,10 +44,30 @@ export const NicheEnum = z.enum([
   "AIRBNB_VRBO_OPERATOR",
   "REAL_ESTATE_INVESTOR",
   "HIGH_INCOME_STR_STRATEGY",
+  "E_COMMERCE",
   "MULTI_SERVICE_CLIENT",
   "GENERAL_SMB",
   "OTHER",
   "UNKNOWN",
+]);
+
+export const MonthlyAdSpendEnum = z.enum([
+  "NONE",
+  "UNDER_5K",
+  "FROM_5K_TO_25K",
+  "FROM_25K_TO_100K",
+  "OVER_100K",
+  "UNKNOWN",
+]);
+
+// Short codes for current bookkeeping state. Stored as free-form text on the
+// Lead so we can add codes without a migration; Zod keeps the UI honest.
+export const BooksStatusEnum = z.enum([
+  "UP_TO_DATE",
+  "BEHIND_1_3",
+  "BEHIND_4_PLUS",
+  "NEVER_DONE",
+  "UNSURE",
 ]);
 
 export const SourceEnum = z.enum([
@@ -90,6 +110,17 @@ export const leadIntakeSchema = z.object({
   w2IncomeFlag: z.boolean().default(false),
   payrollFlag: z.boolean().default(false),
   otherBusinessIncomeFlag: z.boolean().default(false),
+
+  // Niche-specific — all optional; each landing-page form fills only what it
+  // asks. STR forms send costSegInterest, e-com forms send salesChannels +
+  // monthlyAdSpendRange. booksStatus applies to both.
+  costSegInterest: z.boolean().optional(),
+  salesChannels: z
+    .array(z.string().trim().min(1).max(40))
+    .max(12)
+    .default([]),
+  monthlyAdSpendRange: MonthlyAdSpendEnum.optional(),
+  booksStatus: BooksStatusEnum.optional(),
 
   painPoint: z.string().trim().max(2000).optional(),
   notes: z.string().trim().max(2000).optional(),

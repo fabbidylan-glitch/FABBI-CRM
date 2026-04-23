@@ -5,6 +5,7 @@ import { enrollLead } from "@/lib/automation/engine";
 import { config } from "@/lib/config";
 import { prisma } from "@/lib/db";
 import { ensureStageTasks } from "@/lib/features/leads/stage-workflow";
+import { sendMessage } from "@/lib/messaging/send";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,6 +95,20 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       toStage: "CONSULT_COMPLETED",
       actorUserId: actor?.id ?? null,
     });
+
+    // Fire a thank-you email immediately so the prospect hears from us
+    // before the rep has time to draft the proposal. Best-effort — if email
+    // isn't configured the sendMessage call SKIPs and we log.
+    try {
+      await sendMessage({
+        leadId: id,
+        templateKey: "consult.thankyou.email",
+        channel: "EMAIL",
+      });
+    } catch (err) {
+      console.error("[consult-outcome] thank-you email failed", err);
+    }
+
     return NextResponse.json({ ok: true, outcome: "SHOWED_UP" });
   }
 

@@ -113,6 +113,8 @@ export async function scoreLead(input: Pick<
   | "payrollFlag"
   | "otherBusinessIncomeFlag"
   | "niche"
+  | "monthlyAdSpendRange"
+  | "salesChannels"
 >): Promise<ScoreResult> {
   const w = await loadWeights();
 
@@ -127,11 +129,28 @@ export async function scoreLead(input: Pick<
       ? 10
       : input.niche === "STR_OWNER" || input.niche === "AIRBNB_VRBO_OPERATOR"
         ? 8
-        : input.niche === "REAL_ESTATE_INVESTOR"
-          ? 7
-          : input.niche === "MULTI_SERVICE_CLIENT"
-            ? 6
+        : input.niche === "E_COMMERCE"
+          ? 8
+          : input.niche === "REAL_ESTATE_INVESTOR"
+            ? 7
+            : input.niche === "MULTI_SERVICE_CLIENT"
+              ? 6
+              : 0;
+
+  // E-commerce: ad spend is a proxy for size/complexity (bigger spend → more
+  // channels → more reconciliation work). Multi-channel sellers get a small
+  // bump too — a single-channel Shopify store is much simpler to work with.
+  const adSpendScore =
+    input.monthlyAdSpendRange === "OVER_100K"
+      ? 12
+      : input.monthlyAdSpendRange === "FROM_25K_TO_100K"
+        ? 9
+        : input.monthlyAdSpendRange === "FROM_5K_TO_25K"
+          ? 5
+          : input.monthlyAdSpendRange === "UNDER_5K"
+            ? 2
             : 0;
+  const multiChannelBonus = (input.salesChannels?.length ?? 0) >= 3 ? 3 : 0;
 
   const propScore = w.propertyCount[input.propertyCount] ?? 0;
   const complexityScore =
@@ -139,7 +158,9 @@ export async function scoreLead(input: Pick<
     (input.payrollFlag ? w.complexity.payroll : 0) +
     (input.otherBusinessIncomeFlag ? w.complexity.otherBusinessIncome : 0) +
     ((input.statesOfOperation?.length ?? 0) > 1 ? w.complexity.multipleStates : 0) +
-    propScore;
+    propScore +
+    adSpendScore +
+    multiChannelBonus;
 
   const total = Math.min(
     100,

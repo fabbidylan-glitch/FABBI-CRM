@@ -218,6 +218,7 @@ export function NewLeadModal({ users, canCreate }: Props) {
                       <option value="AIRBNB_VRBO_OPERATOR">Airbnb / VRBO</option>
                       <option value="REAL_ESTATE_INVESTOR">Real estate investor</option>
                       <option value="HIGH_INCOME_STR_STRATEGY">High-income + STR</option>
+                      <option value="E_COMMERCE">E-commerce / dropshipping</option>
                       <option value="MULTI_SERVICE_CLIENT">Multi-service</option>
                       <option value="GENERAL_SMB">General SMB</option>
                       <option value="OTHER">Other</option>

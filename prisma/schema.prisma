@@ -93,9 +93,21 @@ enum Niche {
   AIRBNB_VRBO_OPERATOR
   REAL_ESTATE_INVESTOR
   HIGH_INCOME_STR_STRATEGY
+  E_COMMERCE
   MULTI_SERVICE_CLIENT
   GENERAL_SMB
   OTHER
+  UNKNOWN
+}
+
+// Monthly ad spend range — primarily an e-commerce qualification signal
+// (higher spend → larger, more complex ops → better fit for FABBI's services).
+enum MonthlyAdSpendRange {
+  NONE
+  UNDER_5K
+  FROM_5K_TO_25K
+  FROM_25K_TO_100K
+  OVER_100K
   UNKNOWN
 }
 
@@ -378,6 +390,20 @@ model Lead {
   painPoint                String?                @map("pain_point")
   desiredStartDate         DateTime?              @map("desired_start_date")
   notes                    String?
+
+  // ── Niche-specific qualification ────────────────────────────────────────
+  // STR: tri-state interest in a cost segregation study. Null = not asked.
+  costSegInterest          Boolean?               @map("cost_seg_interest")
+  // E-commerce: platforms the prospect sells through (e.g. SHOPIFY, AMAZON,
+  // WALMART, EBAY, ETSY, TIKTOK, WOO, CUSTOM). Free-form strings so we don't
+  // have to keep a channel enum in sync with the industry.
+  salesChannels            String[]               @default([]) @map("sales_channels")
+  // E-commerce: spend bucket — proxy for size/complexity.
+  monthlyAdSpendRange      MonthlyAdSpendRange?   @map("monthly_ad_spend_range")
+  // Bookkeeping state at time of inquiry. Short codes (UP_TO_DATE,
+  // BEHIND_1_3, BEHIND_4_PLUS, NEVER_DONE, UNSURE) kept as text so the form
+  // can evolve without schema churn.
+  booksStatus              String?                @map("books_status")
 
   // Pipeline state
   status                   LeadStatus             @default(ACTIVE)

@@ -113,6 +113,8 @@ export async function POST(req: NextRequest) {
     payrollFlag: false,
     otherBusinessIncomeFlag: false,
     niche,
+    salesChannels: [],
+    monthlyAdSpendRange: undefined,
   });
 
   // Upsert the lead — if this email/phone has visited before, we merge.

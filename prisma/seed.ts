@@ -277,6 +277,18 @@ const MESSAGE_TEMPLATES = [
       "Hi {{first_name}}, {{owner_name}} from FABBI. Missed you on today's call — rebook a time here: {{booking_link}}. Reply STOP to opt out.",
     variables: ["first_name", "owner_name", "booking_link"],
   },
+  {
+    key: "consult.thankyou.email",
+    name: "Consult completed — thank you",
+    channel: CommunicationChannel.EMAIL,
+    category: "consult_thankyou",
+    subject: "Thanks for the conversation, {{first_name}}",
+    bodyText:
+      "Hi {{first_name}},\n\nThanks for spending the time with us today — great learning about {{service_interest}} on your side. " +
+      "I'll pull a tailored proposal together and send it over shortly. " +
+      "If anything else comes to mind in the meantime, just reply here.\n\n— {{owner_name}}, FABBI",
+    variables: ["first_name", "service_interest", "owner_name"],
+  },
 ];
 
 // ─── Marketing spend ──────────────────────────────────────────────────────────
@@ -339,6 +351,17 @@ type SeedLead = {
   estimatedAnnualValue?: number;
   ownerEmail?: string;
   painPoint?: string;
+  // Niche-specific
+  costSegInterest?: boolean;
+  salesChannels?: string[];
+  monthlyAdSpendRange?:
+    | "NONE"
+    | "UNDER_5K"
+    | "FROM_5K_TO_25K"
+    | "FROM_25K_TO_100K"
+    | "OVER_100K"
+    | "UNKNOWN";
+  booksStatus?: string;
 };
 
 const LEADS: SeedLead[] = [
@@ -532,6 +555,93 @@ const LEADS: SeedLead[] = [
     leadScore: 52,
     leadGrade: LeadGrade.C,
     painPoint: "Went with a cheaper provider after second call.",
+    costSegInterest: false,
+  },
+  // ── E-commerce funnel ─────────────────────────────────────────────────────
+  {
+    key: "lead-09",
+    firstName: "Jordan",
+    lastName: "Reeve",
+    email: "jordan@reevesupply.co",
+    phoneE164: "+15125550109",
+    source: LeadSource.LANDING_PAGE,
+    campaignName: "ecom-books-review",
+    niche: Niche.E_COMMERCE,
+    fitType: FitType.ICP,
+    serviceInterest: ServiceInterest.BOOKKEEPING_AND_TAX,
+    annualRevenueRange: AnnualRevenueRange.FROM_500K_TO_1M,
+    taxesPaidLastYearRange: TaxesPaidRange.FROM_25K_TO_50K,
+    propertyCount: PropertyCountBucket.NONE,
+    urgency: UrgencyLevel.NOW,
+    payrollFlag: true,
+    statesOfOperation: ["TX", "CA", "NY", "FL"],
+    pipelineStage: PipelineStage.CONSULT_BOOKED,
+    qualificationStatus: QualificationStatus.QUALIFIED,
+    leadScore: 74,
+    leadGrade: LeadGrade.B,
+    estimatedAnnualValue: 18000,
+    ownerEmail: "sales2@fabbi.co",
+    painPoint:
+      "Shopify + Amazon reconciliation is a mess. No real margin visibility after COGS.",
+    salesChannels: ["SHOPIFY", "AMAZON"],
+    monthlyAdSpendRange: "FROM_5K_TO_25K",
+    booksStatus: "BEHIND_1_3",
+  },
+  {
+    key: "lead-10",
+    firstName: "Maya",
+    lastName: "Okonkwo",
+    email: "maya@glowsupply.shop",
+    phoneE164: "+13325550110",
+    source: LeadSource.GOOGLE_ADS,
+    campaignName: "ecom-sales-tax",
+    niche: Niche.E_COMMERCE,
+    fitType: FitType.ICP,
+    serviceInterest: ServiceInterest.FULL_SERVICE,
+    annualRevenueRange: AnnualRevenueRange.OVER_1M,
+    taxesPaidLastYearRange: TaxesPaidRange.FROM_50K_TO_100K,
+    propertyCount: PropertyCountBucket.NONE,
+    urgency: UrgencyLevel.NEXT_30_DAYS,
+    payrollFlag: true,
+    otherBusinessIncomeFlag: true,
+    statesOfOperation: ["NY", "NJ", "CA", "WA"],
+    pipelineStage: PipelineStage.QUALIFIED,
+    qualificationStatus: QualificationStatus.QUALIFIED,
+    leadScore: 88,
+    leadGrade: LeadGrade.A,
+    estimatedAnnualValue: 42000,
+    ownerEmail: "sales1@fabbi.co",
+    painPoint:
+      "Scaling on Meta Ads, books are 3 months behind, sales tax scaring us.",
+    salesChannels: ["SHOPIFY", "TIKTOK_SHOP", "AMAZON"],
+    monthlyAdSpendRange: "FROM_25K_TO_100K",
+    booksStatus: "BEHIND_4_PLUS",
+  },
+  {
+    key: "lead-11",
+    firstName: "Andre",
+    lastName: "Simmons",
+    email: "andre@simmons-dropship.com",
+    phoneE164: "+13235550111",
+    source: LeadSource.META_ADS,
+    campaignName: "ecom-cleanup",
+    niche: Niche.E_COMMERCE,
+    fitType: FitType.STRETCH,
+    serviceInterest: ServiceInterest.BOOKKEEPING,
+    annualRevenueRange: AnnualRevenueRange.FROM_250K_TO_500K,
+    taxesPaidLastYearRange: TaxesPaidRange.FROM_10K_TO_25K,
+    propertyCount: PropertyCountBucket.NONE,
+    urgency: UrgencyLevel.RESEARCHING,
+    statesOfOperation: ["CA"],
+    pipelineStage: PipelineStage.NEW_LEAD,
+    qualificationStatus: QualificationStatus.MANUAL_REVIEW,
+    leadScore: 58,
+    leadGrade: LeadGrade.C,
+    estimatedAnnualValue: 9600,
+    painPoint: "Need catch-up bookkeeping for last year. Dropshipping through TikTok + Shopify.",
+    salesChannels: ["SHOPIFY", "TIKTOK_SHOP"],
+    monthlyAdSpendRange: "UNDER_5K",
+    booksStatus: "BEHIND_4_PLUS",
   },
 ];
 
@@ -650,6 +760,10 @@ async function main() {
         payrollFlag: seed.payrollFlag ?? false,
         otherBusinessIncomeFlag: seed.otherBusinessIncomeFlag ?? false,
         statesOfOperation: seed.statesOfOperation ?? [],
+        costSegInterest: seed.costSegInterest ?? null,
+        salesChannels: seed.salesChannels ?? [],
+        monthlyAdSpendRange: seed.monthlyAdSpendRange ?? null,
+        booksStatus: seed.booksStatus ?? null,
         painPoint: seed.painPoint ?? null,
         status: LeadStatus.ACTIVE,
         pipelineStage: seed.pipelineStage,

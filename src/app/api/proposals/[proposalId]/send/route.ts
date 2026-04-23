@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { Prisma } from "@prisma/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { enrollLead } from "@/lib/automation/engine";
 import { config } from "@/lib/config";
 import { prisma } from "@/lib/db";
 import { computeDiscount } from "@/lib/features/proposals/discount";
@@ -216,6 +217,20 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
       proposalEmailError = err instanceof Error ? err.message : "Unknown error";
       console.error("[proposal-email] failed", err);
     }
+  }
+
+  // Kick off the proposal follow-up sequence (multi-touch email/WhatsApp +
+  // a call task + breakup). Best-effort — never block the response on the
+  // enrollment. If the rep is double-sending (status was already SENT) we
+  // bailed earlier; on this path we're definitely transitioning DRAFT→SENT.
+  try {
+    await enrollLead({
+      leadId: proposal.leadId,
+      sequenceKey: "proposal_followup_v1",
+      runImmediate: false,
+    });
+  } catch (err) {
+    console.error("[proposal-send] follow-up sequence enrollment failed", err);
   }
 
   return NextResponse.json({

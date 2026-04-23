@@ -23,6 +23,8 @@ type Props = {
   anchorUrl: string;
   /** Fields the rep may want to copy one-at-a-time into Anchor's form. */
   quickPasteFields: QuickPasteField[];
+  /** Structured lost-reason codes — rep picks one before declining. */
+  lostReasons: Array<{ code: string; label: string }>;
 };
 
 export function ProposalActions({
@@ -40,6 +42,7 @@ export function ProposalActions({
   scopeText,
   anchorUrl,
   quickPasteFields,
+  lostReasons,
 }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
@@ -108,8 +111,11 @@ export function ProposalActions({
           </button>
           <DeclineBlock
             disabled={!canEdit || loading !== null}
-            onDecline={(r) => action("decline", { reason: r })}
+            onDecline={(lostReasonCode, r) =>
+              action("decline", { lostReasonCode, reason: r })
+            }
             loading={loading === "decline"}
+            lostReasons={lostReasons}
           />
         </>
       ) : null}
@@ -213,12 +219,15 @@ function DeclineBlock({
   disabled,
   loading,
   onDecline,
+  lostReasons,
 }: {
   disabled: boolean;
   loading: boolean;
-  onDecline: (reason: string) => void;
+  onDecline: (lostReasonCode: string, reason: string) => void;
+  lostReasons: Array<{ code: string; label: string }>;
 }) {
   const [open, setOpen] = useState(false);
+  const [lostReasonCode, setLostReasonCode] = useState("");
   const [reason, setReason] = useState("");
 
   if (!open) {
@@ -235,11 +244,23 @@ function DeclineBlock({
   }
   return (
     <div className="space-y-2 rounded-md border border-brand-hairline bg-white p-2">
+      <select
+        value={lostReasonCode}
+        onChange={(e) => setLostReasonCode(e.target.value)}
+        className="block w-full rounded-md border border-brand-hairline px-2 py-1 text-xs focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
+      >
+        <option value="">Pick a lost reason…</option>
+        {lostReasons.map((r) => (
+          <option key={r.code} value={r.code}>
+            {r.label}
+          </option>
+        ))}
+      </select>
       <textarea
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         rows={2}
-        placeholder="Why? (internal — helps sharpen pricing)"
+        placeholder="Optional: context that sharpens future pricing"
         className="block w-full rounded-md border border-brand-hairline px-2 py-1 text-xs focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
       />
       <div className="flex items-center gap-2">
@@ -252,8 +273,8 @@ function DeclineBlock({
         </button>
         <button
           type="button"
-          disabled={loading || reason.trim() === ""}
-          onClick={() => onDecline(reason.trim())}
+          disabled={loading || lostReasonCode === ""}
+          onClick={() => onDecline(lostReasonCode, reason.trim())}
           className="flex-1 rounded-md bg-rose-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
         >
           {loading ? "Declining…" : "Confirm decline"}

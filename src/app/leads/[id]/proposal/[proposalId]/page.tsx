@@ -3,6 +3,7 @@ import { EditableProposal } from "@/components/editable-proposal";
 import { ProposalActions } from "@/components/proposal-actions";
 import { computeDiscount } from "@/lib/features/proposals/discount";
 import { formatScopeForAnchor } from "@/lib/features/proposals/format-scope";
+import { listActiveLostReasons } from "@/lib/features/users/queries";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -33,6 +34,7 @@ export default async function ProposalPage({
   if (!proposal || proposal.leadId !== id) return notFound();
 
   const canEdit = config.dbEnabled && config.authEnabled;
+  const lostReasons = await listActiveLostReasons();
 
   const monthlyLines = proposal.lineItems.filter((li) => li.monthlyAmount && Number(li.monthlyAmount) > 0);
   const onetimeLines = proposal.lineItems.filter((li) => li.onetimeAmount && Number(li.onetimeAmount) > 0);
@@ -207,6 +209,7 @@ export default async function ProposalPage({
                 clientEmail={proposal.lead.email ?? null}
                 scopeText={anchorClipboardText}
                 anchorUrl={config.anchorNewProposalUrl}
+                lostReasons={lostReasons.map((r) => ({ code: r.code, label: r.label }))}
                 quickPasteFields={[
                   { label: "First name", value: proposal.lead.firstName ?? "" },
                   { label: "Last name", value: proposal.lead.lastName ?? "" },

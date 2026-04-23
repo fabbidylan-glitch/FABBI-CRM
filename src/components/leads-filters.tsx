@@ -57,6 +57,7 @@ const NICHES = [
   { v: "AIRBNB_VRBO_OPERATOR", label: "Airbnb / VRBO" },
   { v: "REAL_ESTATE_INVESTOR", label: "REI" },
   { v: "HIGH_INCOME_STR_STRATEGY", label: "High-income + STR" },
+  { v: "E_COMMERCE", label: "E-commerce" },
   { v: "MULTI_SERVICE_CLIENT", label: "Multi-service" },
   { v: "GENERAL_SMB", label: "General SMB" },
   { v: "OTHER", label: "Other" },

@@ -9,24 +9,31 @@ import { fireOutboundWebhook } from "@/lib/integrations/webhooks/outbound";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const schema = z.object({
-  stage: z.enum([
-    "NEW_LEAD",
-    "CONTACTED",
-    "QUALIFIED",
-    "CONSULT_BOOKED",
-    "CONSULT_COMPLETED",
-    "PROPOSAL_DRAFTING",
-    "PROPOSAL_SENT",
-    "FOLLOW_UP_NEGOTIATION",
-    "WON",
-    "LOST",
-    "COLD_NURTURE",
-  ]),
-  note: z.string().max(500).optional(),
-  lostReasonCode: z.string().optional(),
-  lostReasonNote: z.string().max(500).optional(),
-});
+const schema = z
+  .object({
+    stage: z.enum([
+      "NEW_LEAD",
+      "CONTACTED",
+      "QUALIFIED",
+      "CONSULT_BOOKED",
+      "CONSULT_COMPLETED",
+      "PROPOSAL_DRAFTING",
+      "PROPOSAL_SENT",
+      "FOLLOW_UP_NEGOTIATION",
+      "WON",
+      "LOST",
+      "COLD_NURTURE",
+    ]),
+    note: z.string().max(500).optional(),
+    lostReasonCode: z.string().trim().max(80).optional(),
+    lostReasonNote: z.string().max(500).optional(),
+  })
+  // Moving to LOST requires a structured lostReasonCode so we can roll up
+  // the pipeline "why we lose" report. Free-text alone isn't queryable.
+  .refine((v) => v.stage !== "LOST" || (v.lostReasonCode && v.lostReasonCode.length > 0), {
+    path: ["lostReasonCode"],
+    message: "A lost reason is required when moving to LOST.",
+  });
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   if (!config.dbEnabled)
@@ -58,17 +65,23 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   const actor = await prisma.user.findFirst({ where: { externalId: session.userId } });
 
-  // Resolve the lost reason if one was supplied.
+  // Resolve the lost reason if one was supplied. When the destination is LOST
+  // the schema has already guaranteed a code is present; we still need to
+  // verify it maps to an active LostReason row.
   let lostReasonId: string | null = lead.lostReasonId;
   let lostReasonLabel: string | null = null;
   if (parsed.data.stage === "LOST" && parsed.data.lostReasonCode) {
     const reason = await prisma.lostReason.findUnique({
       where: { code: parsed.data.lostReasonCode },
     });
-    if (reason) {
-      lostReasonId = reason.id;
-      lostReasonLabel = reason.label;
+    if (!reason || !reason.isActive) {
+      return NextResponse.json(
+        { error: `Unknown or inactive lost reason: ${parsed.data.lostReasonCode}` },
+        { status: 422 }
+      );
     }
+    lostReasonId = reason.id;
+    lostReasonLabel = reason.label;
   }
 
   const updated = await prisma.$transaction(async (tx) => {

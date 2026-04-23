@@ -4,16 +4,17 @@ import Script from "next/script";
 import { useState } from "react";
 
 type Stage = "idle" | "submitting" | "success" | "error";
+export type IntakeVariant = "str" | "ecom" | "general";
 
-export function LeadIntakeForm({ calendlyUrl }: { calendlyUrl?: string }) {
+export function LeadIntakeForm({
+  calendlyUrl,
+  variant = "general",
+}: {
+  calendlyUrl?: string;
+  variant?: IntakeVariant;
+}) {
   const [stage, setStage] = useState<Stage>("idle");
   const [message, setMessage] = useState<string | null>(null);
-  const [result, setResult] = useState<{
-    grade?: string;
-    score?: number;
-    qualification?: string;
-    created?: boolean;
-  } | null>(null);
   // Values we just submitted — used to pre-fill the Calendly URL on success.
   const [submitted, setSubmitted] = useState<{
     firstName: string;
@@ -29,6 +30,13 @@ export function LeadIntakeForm({ calendlyUrl }: { calendlyUrl?: string }) {
     const formEl = e.currentTarget;
     const fd = new FormData(formEl);
     const statesRaw = String(fd.get("statesOfOperation") ?? "");
+    // E-commerce form sends sales channels as repeated checkboxes; STR form
+    // sends none. `getAll` returns [] when nothing is checked.
+    const salesChannels = fd.getAll("salesChannels").map(String).filter(Boolean);
+    const costSegRaw = String(fd.get("costSegInterest") ?? "");
+    const costSegInterest =
+      costSegRaw === "YES" ? true : costSegRaw === "NO" ? false : undefined;
+
     const payload = {
       firstName: fd.get("firstName"),
       lastName: fd.get("lastName"),
@@ -36,7 +44,7 @@ export function LeadIntakeForm({ calendlyUrl }: { calendlyUrl?: string }) {
       phone: fd.get("phone") || "",
       companyName: fd.get("companyName") || "",
       websiteUrl: fd.get("websiteUrl") || "",
-      source: fd.get("source") || "WEBSITE",
+      source: fd.get("source") || "LANDING_PAGE",
       niche: fd.get("niche") || "UNKNOWN",
       serviceInterest: fd.get("serviceInterest") || "UNSURE",
       annualRevenueRange: fd.get("annualRevenueRange") || "UNKNOWN",
@@ -50,6 +58,10 @@ export function LeadIntakeForm({ calendlyUrl }: { calendlyUrl?: string }) {
       w2IncomeFlag: fd.get("w2IncomeFlag") === "on",
       payrollFlag: fd.get("payrollFlag") === "on",
       otherBusinessIncomeFlag: fd.get("otherBusinessIncomeFlag") === "on",
+      salesChannels,
+      monthlyAdSpendRange: fd.get("monthlyAdSpendRange") || undefined,
+      booksStatus: fd.get("booksStatus") || undefined,
+      costSegInterest,
       painPoint: fd.get("painPoint") || "",
       website_hp: fd.get("website_hp") || "",
     };
@@ -70,7 +82,7 @@ export function LeadIntakeForm({ calendlyUrl }: { calendlyUrl?: string }) {
         );
         return;
       }
-      setResult(data);
+      void data;
       setSubmitted({
         firstName: String(payload.firstName ?? ""),
         lastName: String(payload.lastName ?? ""),
@@ -122,8 +134,6 @@ export function LeadIntakeForm({ calendlyUrl }: { calendlyUrl?: string }) {
               Pick a 20-minute slot below — your name and email are already filled
               in, just confirm a time.
             </p>
-            {/* Calendly's embed script auto-initializes any element with the
-                `calendly-inline-widget` class and a `data-url` attribute. */}
             <Script
               src="https://assets.calendly.com/assets/external/widget.js"
               strategy="lazyOnload"
@@ -163,6 +173,18 @@ export function LeadIntakeForm({ calendlyUrl }: { calendlyUrl?: string }) {
     );
   }
 
+  const isStr = variant === "str";
+  const isEcom = variant === "ecom";
+  const defaultNiche = isStr ? "STR_OWNER" : isEcom ? "E_COMMERCE" : "UNKNOWN";
+  const statesLabel = isEcom
+    ? "States with sales tax nexus (comma or space separated)"
+    : "States of operation (comma or space separated)";
+  const painPointLabel = isStr
+    ? "What's the most important thing for us to solve for your portfolio?"
+    : isEcom
+      ? "What's the biggest issue in your books or tax setup right now?"
+      : "What's the most important thing for us to solve?";
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -191,14 +213,28 @@ export function LeadIntakeForm({ calendlyUrl }: { calendlyUrl?: string }) {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field label="Niche">
-          <select name="niche" className={inputCls} defaultValue="STR_OWNER">
-            <option value="STR_OWNER">Short-term rental owner</option>
-            <option value="AIRBNB_VRBO_OPERATOR">Airbnb / VRBO operator</option>
-            <option value="REAL_ESTATE_INVESTOR">Real estate investor</option>
-            <option value="HIGH_INCOME_STR_STRATEGY">High-income + STR strategy</option>
-            <option value="MULTI_SERVICE_CLIENT">Multi-service client</option>
-            <option value="GENERAL_SMB">General SMB</option>
-            <option value="OTHER">Other</option>
+          <select name="niche" className={inputCls} defaultValue={defaultNiche}>
+            {isStr ? (
+              <>
+                <option value="STR_OWNER">Short-term rental owner</option>
+                <option value="AIRBNB_VRBO_OPERATOR">Airbnb / VRBO operator</option>
+                <option value="REAL_ESTATE_INVESTOR">Real estate investor</option>
+                <option value="HIGH_INCOME_STR_STRATEGY">High-income + STR strategy</option>
+              </>
+            ) : isEcom ? (
+              <option value="E_COMMERCE">E-commerce / dropshipping</option>
+            ) : (
+              <>
+                <option value="STR_OWNER">Short-term rental owner</option>
+                <option value="AIRBNB_VRBO_OPERATOR">Airbnb / VRBO operator</option>
+                <option value="REAL_ESTATE_INVESTOR">Real estate investor</option>
+                <option value="HIGH_INCOME_STR_STRATEGY">High-income + STR strategy</option>
+                <option value="E_COMMERCE">E-commerce / dropshipping</option>
+                <option value="MULTI_SERVICE_CLIENT">Multi-service client</option>
+                <option value="GENERAL_SMB">General SMB</option>
+                <option value="OTHER">Other</option>
+              </>
+            )}
           </select>
         </Field>
         <Field label="Service interest">
@@ -231,16 +267,56 @@ export function LeadIntakeForm({ calendlyUrl }: { calendlyUrl?: string }) {
             <option value="UNKNOWN">Prefer not to say</option>
           </select>
         </Field>
-        <Field label="Property count">
-          <select name="propertyCount" className={inputCls} defaultValue="UNKNOWN">
-            <option value="NONE">None</option>
-            <option value="ONE">1</option>
-            <option value="TWO_TO_FOUR">2 – 4</option>
-            <option value="FIVE_TO_NINE">5 – 9</option>
-            <option value="TEN_PLUS">10+</option>
-            <option value="UNKNOWN">Unknown</option>
-          </select>
-        </Field>
+
+        {/* STR-only: property count + cost seg */}
+        {isStr ? (
+          <>
+            <Field label="Property count">
+              <select name="propertyCount" className={inputCls} defaultValue="UNKNOWN">
+                <option value="NONE">None yet</option>
+                <option value="ONE">1</option>
+                <option value="TWO_TO_FOUR">2 – 4</option>
+                <option value="FIVE_TO_NINE">5 – 9</option>
+                <option value="TEN_PLUS">10+</option>
+                <option value="UNKNOWN">Unknown</option>
+              </select>
+            </Field>
+            <Field label="Interested in a cost seg study?">
+              <select name="costSegInterest" className={inputCls} defaultValue="">
+                <option value="">Not sure yet</option>
+                <option value="YES">Yes — want to explore</option>
+                <option value="NO">No, not relevant</option>
+              </select>
+            </Field>
+          </>
+        ) : null}
+
+        {/* E-com-only: ad spend + books status */}
+        {isEcom ? (
+          <>
+            <Field label="Monthly ad spend">
+              <select name="monthlyAdSpendRange" className={inputCls} defaultValue="UNKNOWN">
+                <option value="NONE">No paid ads</option>
+                <option value="UNDER_5K">Under $5k / month</option>
+                <option value="FROM_5K_TO_25K">$5k – $25k / month</option>
+                <option value="FROM_25K_TO_100K">$25k – $100k / month</option>
+                <option value="OVER_100K">$100k+ / month</option>
+                <option value="UNKNOWN">Not sure</option>
+              </select>
+            </Field>
+            <Field label="Are your books up to date?">
+              <select name="booksStatus" className={inputCls} defaultValue="">
+                <option value="">Select one</option>
+                <option value="UP_TO_DATE">Yes — up to date</option>
+                <option value="BEHIND_1_3">Behind 1–3 months</option>
+                <option value="BEHIND_4_PLUS">Behind 4+ months</option>
+                <option value="NEVER_DONE">Never done them</option>
+                <option value="UNSURE">Not sure</option>
+              </select>
+            </Field>
+          </>
+        ) : null}
+
         <Field label="Urgency">
           <select name="urgency" className={inputCls} defaultValue="UNKNOWN">
             <option value="NOW">Now</option>
@@ -251,27 +327,74 @@ export function LeadIntakeForm({ calendlyUrl }: { calendlyUrl?: string }) {
         </Field>
       </div>
 
-      <Field label="States of operation (comma or space separated)">
+      {/* E-com-only: multi-select sales channels */}
+      {isEcom ? (
+        <fieldset className="rounded-md border border-brand-hairline p-3">
+          <legend className="px-1 text-[11px] uppercase tracking-wider text-brand-muted">
+            Sales channels
+          </legend>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            {[
+              { v: "SHOPIFY", label: "Shopify" },
+              { v: "AMAZON", label: "Amazon" },
+              { v: "WALMART", label: "Walmart" },
+              { v: "EBAY", label: "eBay" },
+              { v: "ETSY", label: "Etsy" },
+              { v: "TIKTOK_SHOP", label: "TikTok Shop" },
+              { v: "WOO", label: "WooCommerce" },
+              { v: "CUSTOM", label: "Custom / other" },
+            ].map((opt) => (
+              <Checkbox key={opt.v} name="salesChannels" value={opt.v} label={opt.label} />
+            ))}
+          </div>
+        </fieldset>
+      ) : null}
+
+      <Field label={statesLabel}>
         <input name="statesOfOperation" className={inputCls} placeholder="TX, FL, CO" />
       </Field>
 
       <fieldset className="rounded-md border border-brand-hairline p-3">
-        <legend className="px-1 text-[11px] uppercase tracking-wider text-brand-muted">Complexity</legend>
+        <legend className="px-1 text-[11px] uppercase tracking-wider text-brand-muted">
+          Complexity
+        </legend>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-          <Checkbox name="w2IncomeFlag" label="Has W-2 income" />
-          <Checkbox name="payrollFlag" label="Runs payroll" />
-          <Checkbox name="otherBusinessIncomeFlag" label="Other business income" />
+          {/* STR customers often have W-2 + payroll signals. For e-com the more
+              useful third flag is "runs payroll". */}
+          {isStr ? (
+            <>
+              <Checkbox name="w2IncomeFlag" label="Has W-2 income" />
+              <Checkbox name="payrollFlag" label="Runs payroll" />
+              <Checkbox name="otherBusinessIncomeFlag" label="Other business income" />
+            </>
+          ) : isEcom ? (
+            <>
+              <Checkbox name="payrollFlag" label="Runs payroll" />
+              <Checkbox name="otherBusinessIncomeFlag" label="Other business income" />
+              <Checkbox name="w2IncomeFlag" label="Has W-2 day job" />
+            </>
+          ) : (
+            <>
+              <Checkbox name="w2IncomeFlag" label="Has W-2 income" />
+              <Checkbox name="payrollFlag" label="Runs payroll" />
+              <Checkbox name="otherBusinessIncomeFlag" label="Other business income" />
+            </>
+          )}
         </div>
       </fieldset>
 
-      <Field label="What's the most important thing for us to solve?">
+      <Field label={painPointLabel}>
         <textarea name="painPoint" rows={3} className={inputCls} />
       </Field>
 
       {/* honeypot — hidden from humans, visible to bots */}
       <input name="website_hp" type="text" tabIndex={-1} autoComplete="off" className="hidden" />
 
-      <input type="hidden" name="source" value="WEBSITE" />
+      <input
+        type="hidden"
+        name="source"
+        value={variant === "general" ? "WEBSITE" : "LANDING_PAGE"}
+      />
 
       <div className="flex items-center justify-between">
         <p className="text-xs text-brand-muted">
@@ -318,10 +441,23 @@ function Field({
   );
 }
 
-function Checkbox({ name, label }: { name: string; label: string }) {
+function Checkbox({
+  name,
+  label,
+  value,
+}: {
+  name: string;
+  label: string;
+  value?: string;
+}) {
   return (
     <label className="flex items-center gap-2 text-sm text-brand-navy">
-      <input type="checkbox" name={name} className="h-4 w-4 rounded border-brand-hairline text-brand-blue focus:ring-brand-blue" />
+      <input
+        type="checkbox"
+        name={name}
+        value={value}
+        className="h-4 w-4 rounded border-brand-hairline text-brand-blue focus:ring-brand-blue"
+      />
       {label}
     </label>
   );
