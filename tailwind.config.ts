@@ -25,14 +25,17 @@ const config: Config = {
         // palette exactly so prospects flow from ad → landing → intake
         // without a visual break. Kept separate from `brand.*` so the
         // internal dashboard keeps its current look.
+        // Mirror of the fabbi.co marketing site tokens so the public
+        // intake flow matches the landing pages exactly. ink is fabbi.co's
+        // primary dark navy, accent is their electric-blue CTA color.
         site: {
-          ink: "#061527",
+          ink: "#07183a",
           "ink-2": "#1F2937",
           muted: "#6B7280",
           surface: "#F8FAFC",
           border: "#E5E7EB",
-          accent: "#8F6F33",
-          "accent-soft": "#F5ECDB",
+          accent: "#025ef4",
+          "accent-soft": "#E6F0FF",
         },
       },
       fontFamily: {

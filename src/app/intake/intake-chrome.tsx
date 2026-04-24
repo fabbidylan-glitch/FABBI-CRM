@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FabbiLogo } from "@/components/FabbiLogo";
 
 /**
  * Branded chrome for the public intake flow. Mirrors the fabbi.co header
@@ -19,9 +20,7 @@ export function IntakeHeader() {
           className="flex items-center gap-2"
           aria-label="FABBI"
         >
-          <span className="font-display text-2xl font-semibold tracking-tight text-site-ink">
-            FABBI
-          </span>
+          <FabbiLogo className="h-6 w-auto text-site-ink sm:h-7" />
         </Link>
         <div className="text-xs font-medium uppercase tracking-[0.18em] text-site-muted">
           New Client Intake
