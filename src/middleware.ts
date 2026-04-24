@@ -4,7 +4,7 @@ import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server
 // Routes that must stay publicly accessible even when auth is on:
 // the public intake form, its API, and the Clerk sign-in/sign-up flows.
 const isPublicRoute = createRouteMatcher([
-  "/intake",
+  "/intake(.*)",
   "/api/public/:path*",
   "/api/cron/:path*",
   "/sign-in(.*)",
