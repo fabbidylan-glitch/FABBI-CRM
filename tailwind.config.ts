@@ -40,9 +40,10 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-barlow)", "ui-sans-serif", "system-ui", "sans-serif"],
-        // Display face used for the FABBI wordmark + intake H1s,
-        // matching the marketing site.
-        display: ["var(--font-fraunces)", "ui-serif", "Georgia", "serif"],
+        // fabbi.co uses Barlow for both body and headings. `font-display`
+        // resolves to the same face so intake H1s sit in Barlow at a
+        // heavier weight, matching the marketing site exactly.
+        display: ["var(--font-barlow)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       boxShadow: {
         // Flat, crisp cards — a single hairline ring + an almost-invisible lift.

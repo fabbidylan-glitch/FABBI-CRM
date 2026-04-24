@@ -1,22 +1,16 @@
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata, Viewport } from "next";
-import { Barlow, Fraunces } from "next/font/google";
+import { Barlow } from "next/font/google";
 import { config } from "@/lib/config";
 
+// Barlow is the single typeface on fabbi.co. Both body text and display
+// headings use it — the marketing site, landing pages, and CRM intake all
+// match typographically.
 const barlow = Barlow({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["300", "400", "500", "600", "700"],
   variable: "--font-barlow",
-  display: "swap",
-});
-
-// Display face for the FABBI wordmark + intake H1s — matches the marketing
-// site at fabbi.co so the intake flow reads as one branded experience.
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-fraunces",
   display: "swap",
 });
 
@@ -61,7 +55,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const body = (
-    <html lang="en" className={`${barlow.variable} ${fraunces.variable}`}>
+    <html lang="en" className={barlow.variable}>
       <body className="min-h-screen bg-brand-blue-tint text-brand-navy antialiased">
         {children}
       </body>
