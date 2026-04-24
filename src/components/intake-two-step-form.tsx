@@ -296,7 +296,7 @@ export function IntakeTwoStepForm() {
   );
 
   return (
-    <div className="rounded-2xl border border-brand-hairline bg-white p-7 shadow-card sm:p-9">
+    <div className="rounded-2xl border border-site-border bg-white p-7 shadow-card sm:p-9">
       <StepIndicator step={step} />
 
       {step === 1 ? (
@@ -367,8 +367,8 @@ export function IntakeTwoStepForm() {
                     key={o.value}
                     className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition ${
                       checked
-                        ? "border-brand-navy bg-brand-blue-tint text-brand-navy"
-                        : "border-brand-hairline bg-white text-brand-navy/90 hover:border-brand-navy/40"
+                        ? "border-site-ink bg-site-surface text-site-ink"
+                        : "border-site-border bg-white text-site-ink/90 hover:border-site-ink/40"
                     }`}
                   >
                     <input
@@ -384,7 +384,7 @@ export function IntakeTwoStepForm() {
                             : [...form.serviceInterestsUi, o.value]
                         )
                       }
-                      className="h-4 w-4 accent-brand-navy"
+                      className="h-4 w-4 accent-site-ink"
                     />
                     <span>{o.label}</span>
                   </label>
@@ -408,7 +408,7 @@ export function IntakeTwoStepForm() {
           {error && <ErrorMessage>{error}</ErrorMessage>}
 
           <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-brand-muted">
+            <p className="text-xs text-site-muted">
               Takes about 2 minutes. Step 2 has the qualification questions.
             </p>
             <button type="submit" className={primaryBtnCls}>
@@ -458,7 +458,7 @@ export function IntakeTwoStepForm() {
               placeholder="e.g. NY, NJ, FL"
               className={inputCls}
             />
-            <p className="mt-1 text-xs text-brand-muted">
+            <p className="mt-1 text-xs text-site-muted">
               Two-letter state codes, comma separated.
             </p>
           </Field>
@@ -498,7 +498,7 @@ export function IntakeTwoStepForm() {
 
           {error && <ErrorMessage>{error}</ErrorMessage>}
 
-          <p className="text-sm text-brand-muted">
+          <p className="text-sm text-site-muted">
             You&rsquo;ll get a response within 1 business day. No spam. No
             obligation.
           </p>
@@ -507,7 +507,7 @@ export function IntakeTwoStepForm() {
             <button
               type="button"
               onClick={handleBack}
-              className="text-sm font-semibold text-brand-muted transition hover:text-brand-navy"
+              className="text-sm font-semibold text-site-muted transition hover:text-site-ink"
               disabled={submitting}
             >
               ← Back
@@ -528,19 +528,19 @@ export function IntakeTwoStepForm() {
 
 function StepIndicator({ step }: { step: 1 | 2 }) {
   return (
-    <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.18em] text-brand-muted">
-      <span className={step === 1 ? "text-brand-navy" : undefined}>
+    <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.18em] text-site-muted">
+      <span className={step === 1 ? "text-site-ink" : undefined}>
         Step {step} of 2
       </span>
       <span aria-hidden className="flex flex-1 gap-1">
         <span
           className={`h-1 flex-1 rounded-full ${
-            step >= 1 ? "bg-brand-navy" : "bg-brand-hairline"
+            step >= 1 ? "bg-site-ink" : "bg-site-border"
           }`}
         />
         <span
           className={`h-1 flex-1 rounded-full ${
-            step >= 2 ? "bg-brand-navy" : "bg-brand-hairline"
+            step >= 2 ? "bg-site-ink" : "bg-site-border"
           }`}
         />
       </span>
@@ -559,9 +559,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-brand-navy">
+      <span className="mb-1.5 block text-sm font-medium text-site-ink">
         {label}
-        {required && <span className="ml-0.5 text-brand-blue">*</span>}
+        {required && <span className="ml-0.5 text-site-accent">*</span>}
       </span>
       {children}
     </label>
@@ -580,7 +580,7 @@ function ErrorMessage({ children }: { children: React.ReactNode }) {
 }
 
 const inputCls =
-  "block w-full rounded-lg border border-brand-hairline bg-white px-3.5 py-2.5 text-[15px] text-brand-navy shadow-sm transition placeholder:text-brand-muted/70 focus:border-brand-navy focus:outline-none focus:ring-2 focus:ring-brand-navy/15";
+  "block w-full rounded-lg border border-site-border bg-white px-3.5 py-2.5 text-[15px] text-site-ink shadow-sm transition placeholder:text-site-muted/70 focus:border-site-ink focus:outline-none focus:ring-2 focus:ring-site-ink/15";
 
 const primaryBtnCls =
-  "inline-flex items-center justify-center gap-2 rounded-lg bg-brand-navy px-6 py-3 text-sm font-semibold tracking-tight text-white shadow-sm transition hover:bg-brand-ink disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex items-center justify-center gap-2 rounded-lg bg-site-ink px-7 py-3 text-sm font-semibold tracking-tight text-white shadow-[0_10px_30px_-10px_rgba(6,21,39,0.35)] transition hover:bg-site-ink-2 disabled:cursor-not-allowed disabled:opacity-60";
