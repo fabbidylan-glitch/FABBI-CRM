@@ -181,7 +181,7 @@ function buildVars(
     // `{{booking_link}}` on its own line and get a grammatical sentence
     // when set, or a blank line when CALENDLY_DEFAULT_EVENT_URL is unset.
     booking_link: process.env.CALENDLY_DEFAULT_EVENT_URL
-      ? `Prefer to lock in a time now? ${process.env.CALENDLY_DEFAULT_EVENT_URL}`
+      ? `Book your call here: ${process.env.CALENDLY_DEFAULT_EVENT_URL}`
       : "",
     proposal_link: "",
     pain_point_summary: lead.painPoint ?? "",

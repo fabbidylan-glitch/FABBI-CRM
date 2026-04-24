@@ -386,6 +386,10 @@ model Lead {
   niche                    Niche                  @default(UNKNOWN)
   fitType                  FitType                @default(UNKNOWN) @map("fit_type")
   serviceInterest          ServiceInterest        @default(UNSURE) @map("service_interest")
+  // Multi-select raw UI values preserved (BOOKKEEPING, TAX_STRATEGY,
+  // TAX_PREP, CFO, COST_SEG). Primary interest is derived into the
+  // `serviceInterest` enum column above for backward-compatible scoring.
+  serviceInterests         String[]               @default([]) @map("service_interests")
   annualRevenueRange       AnnualRevenueRange     @default(UNKNOWN) @map("annual_revenue_range")
   annualProfitRange        AnnualProfitRange      @default(UNKNOWN) @map("annual_profit_range")
   taxesPaidLastYearRange   TaxesPaidRange         @default(UNKNOWN) @map("taxes_paid_last_year_range")

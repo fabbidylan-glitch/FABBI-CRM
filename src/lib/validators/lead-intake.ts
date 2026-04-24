@@ -11,6 +11,17 @@ export const ServiceInterestEnum = z.enum([
   "UNSURE",
 ]);
 
+// Raw multi-select values surfaced by the intake form. Preserved verbatim
+// in Lead.serviceInterests so the sales team can see the exact boxes the
+// prospect checked (Cost Segregation doesn't collapse into TAX_STRATEGY).
+export const ServiceInterestUiEnum = z.enum([
+  "BOOKKEEPING",
+  "TAX_STRATEGY",
+  "TAX_PREP",
+  "CFO",
+  "COST_SEG",
+]);
+
 export const AnnualRevenueEnum = z.enum([
   "UNDER_250K",
   "FROM_250K_TO_500K",
@@ -101,6 +112,9 @@ export const leadIntakeSchema = z.object({
 
   niche: NicheEnum.default("UNKNOWN"),
   serviceInterest: ServiceInterestEnum.default("UNSURE"),
+  // Multi-select from the 2-step intake form. Optional for backward
+  // compatibility with callers that still POST only the single enum.
+  serviceInterests: z.array(ServiceInterestUiEnum).max(10).default([]),
   annualRevenueRange: AnnualRevenueEnum.default("UNKNOWN"),
   taxesPaidLastYearRange: TaxesPaidEnum.default("UNKNOWN"),
   propertyCount: PropertyCountEnum.default("UNKNOWN"),

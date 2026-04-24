@@ -24,6 +24,8 @@ export type NewLeadAlertPayload = {
   phone?: string | null;
   revenueRange: string;
   serviceInterest: string;
+  /** Raw multi-select values from the intake form. Preferred for display. */
+  serviceInterests?: string[];
   niche: string;
   statesOfOperation?: string[];
   tier: LeadTierValue;
@@ -58,10 +60,18 @@ async function sendSlack(payload: NewLeadAlertPayload): Promise<void> {
   const fullName = [payload.firstName, payload.lastName].filter(Boolean).join(" ").trim();
   const states = (payload.statesOfOperation ?? []).join(", ") || "—";
 
+  // Prefer the raw multi-select values so Cost Segregation doesn't collapse
+  // into Tax Planning (which is what the primary ServiceInterest enum does).
+  const services = payload.serviceInterests ?? [];
+  const servicesDisplay =
+    services.length > 0
+      ? services.map(humanUiService).join(", ")
+      : humanService(payload.serviceInterest);
+
   const lines: string[] = [
     header,
     `*${fullName}*  <mailto:${payload.email}|${payload.email}>${payload.phone ? `  •  ${payload.phone}` : ""}`,
-    `Revenue: *${humanRevenue(payload.revenueRange)}*  •  Service: *${humanService(payload.serviceInterest)}*  •  Niche: *${humanNiche(payload.niche)}*`,
+    `Revenue: *${humanRevenue(payload.revenueRange)}*  •  Interested in: *${servicesDisplay}*  •  Niche: *${humanNiche(payload.niche)}*`,
     `Tier score: *${payload.tierScore}* (${payload.tierReasons.join(" · ") || "no positive signals"})  •  Fit score: ${payload.leadScore}/100${payload.leadGrade ? ` (${payload.leadGrade})` : ""}`,
     `States: ${states}  •  Landing: ${payload.sourcePage || "—"}`,
   ];
@@ -109,6 +119,24 @@ function humanRevenue(v: string): string {
       return "$1M+";
     default:
       return "unknown";
+  }
+}
+
+// Raw multi-select values from the intake form (before primary derivation).
+function humanUiService(v: string): string {
+  switch (v) {
+    case "BOOKKEEPING":
+      return "Bookkeeping";
+    case "TAX_STRATEGY":
+      return "Tax Planning";
+    case "TAX_PREP":
+      return "Tax Prep";
+    case "CFO":
+      return "Fractional CFO";
+    case "COST_SEG":
+      return "Cost Segregation";
+    default:
+      return v;
   }
 }
 

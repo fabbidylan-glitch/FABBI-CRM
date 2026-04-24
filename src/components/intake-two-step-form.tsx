@@ -60,7 +60,7 @@ type FormState = {
   email: string;
   phone: string;
   annualRevenueRange: string;
-  serviceInterestUi: ServiceInterestUi | "";
+  serviceInterestsUi: ServiceInterestUi[];
   niche: string;
   propertyCount: string;
   statesOfOperation: string;
@@ -76,7 +76,7 @@ const initialState: FormState = {
   email: "",
   phone: "",
   annualRevenueRange: "",
-  serviceInterestUi: "",
+  serviceInterestsUi: [],
   niche: "",
   propertyCount: "UNKNOWN",
   statesOfOperation: "",
@@ -85,6 +85,37 @@ const initialState: FormState = {
   notes: "",
   website_hp: "",
 };
+
+// Derive the primary Prisma ServiceInterest enum from the multi-select.
+// Priority order: CFO > FULL_SERVICE (3+ selected) > BOOKKEEPING_AND_TAX >
+// TAX_STRATEGY > BOOKKEEPING > TAX_PREP > UNSURE. Ensures scoring picks up
+// the highest-value signal even when multiple boxes are checked.
+function derivePrimaryServiceInterest(
+  services: ServiceInterestUi[]
+):
+  | "BOOKKEEPING"
+  | "TAX_STRATEGY"
+  | "TAX_PREP"
+  | "BOOKKEEPING_AND_TAX"
+  | "CFO"
+  | "FULL_SERVICE"
+  | "UNSURE" {
+  if (services.length === 0) return "UNSURE";
+  if (services.includes("CFO")) return "CFO";
+  if (services.length >= 3) return "FULL_SERVICE";
+  const hasBookkeeping = services.includes("BOOKKEEPING");
+  const hasTaxish =
+    services.includes("TAX_STRATEGY") ||
+    services.includes("TAX_PREP") ||
+    services.includes("COST_SEG");
+  if (hasBookkeeping && hasTaxish) return "BOOKKEEPING_AND_TAX";
+  if (services.includes("TAX_STRATEGY") || services.includes("COST_SEG")) {
+    return "TAX_STRATEGY";
+  }
+  if (services.includes("BOOKKEEPING")) return "BOOKKEEPING";
+  if (services.includes("TAX_PREP")) return "TAX_PREP";
+  return "UNSURE";
+}
 
 type Attribution = {
   source: string;
@@ -124,7 +155,9 @@ function requiredStep1(state: FormState): string | null {
   if (!/^\S+@\S+\.\S+$/.test(state.email.trim())) return "Enter a valid email.";
   if (!state.phone.trim()) return "Phone is required.";
   if (!state.annualRevenueRange) return "Select a revenue range.";
-  if (!state.serviceInterestUi) return "Select a service interest.";
+  if (state.serviceInterestsUi.length === 0) {
+    return "Select at least one service you're interested in.";
+  }
   return null;
 }
 
@@ -179,12 +212,12 @@ export function IntakeTwoStepForm() {
     setSubmitting(true);
     setError(null);
 
-    // Map our UI service interest (with COST_SEG) onto the Prisma enum. If the
-    // prospect selected Cost Segregation, we flag it via costSegInterest and
-    // route serviceInterest to TAX_STRATEGY (closest primary service).
-    const costSegInterest = form.serviceInterestUi === "COST_SEG";
-    const serviceInterest =
-      form.serviceInterestUi === "COST_SEG" ? "TAX_STRATEGY" : form.serviceInterestUi;
+    // Multi-select → Prisma mapping. Persist the full list verbatim in
+    // serviceInterests; derive the primary single-enum for scoring/grading.
+    // costSegInterest flags any mention of Cost Segregation.
+    const services = form.serviceInterestsUi;
+    const costSegInterest = services.includes("COST_SEG");
+    const serviceInterest = derivePrimaryServiceInterest(services);
 
     // Preserve the landing page attribution alongside the user's notes so the
     // sales team sees where the click originated. utm_* and source are stored
@@ -206,6 +239,7 @@ export function IntakeTwoStepForm() {
 
       niche: form.niche || "UNKNOWN",
       serviceInterest: serviceInterest || "UNSURE",
+      serviceInterests: services,
       annualRevenueRange: form.annualRevenueRange || "UNKNOWN",
       taxesPaidLastYearRange: form.taxesPaidLastYearRange || "UNKNOWN",
       propertyCount: form.propertyCount || "UNKNOWN",
@@ -324,28 +358,38 @@ export function IntakeTwoStepForm() {
               ))}
             </select>
           </Field>
-          <Field label="Service interest" required>
+          <Field label="What are you interested in? (select all that apply)" required>
             <div className="grid gap-2 sm:grid-cols-2">
-              {SERVICE_INTEREST_OPTIONS.map((o) => (
-                <label
-                  key={o.value}
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition ${
-                    form.serviceInterestUi === o.value
-                      ? "border-brand-navy bg-brand-blue-tint text-brand-navy"
-                      : "border-brand-hairline bg-white text-brand-navy/90 hover:border-brand-navy/40"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="serviceInterest"
-                    value={o.value}
-                    checked={form.serviceInterestUi === o.value}
-                    onChange={() => update("serviceInterestUi", o.value)}
-                    className="h-4 w-4 accent-brand-navy"
-                  />
-                  <span>{o.label}</span>
-                </label>
-              ))}
+              {SERVICE_INTEREST_OPTIONS.map((o) => {
+                const checked = form.serviceInterestsUi.includes(o.value);
+                return (
+                  <label
+                    key={o.value}
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition ${
+                      checked
+                        ? "border-brand-navy bg-brand-blue-tint text-brand-navy"
+                        : "border-brand-hairline bg-white text-brand-navy/90 hover:border-brand-navy/40"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      name="serviceInterests"
+                      value={o.value}
+                      checked={checked}
+                      onChange={() =>
+                        update(
+                          "serviceInterestsUi",
+                          checked
+                            ? form.serviceInterestsUi.filter((v) => v !== o.value)
+                            : [...form.serviceInterestsUi, o.value]
+                        )
+                      }
+                      className="h-4 w-4 accent-brand-navy"
+                    />
+                    <span>{o.label}</span>
+                  </label>
+                );
+              })}
             </div>
           </Field>
 

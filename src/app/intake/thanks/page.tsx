@@ -2,16 +2,11 @@ import Link from "next/link";
 import { ThanksCalendly } from "./thanks-calendly";
 
 export const metadata = {
-  title: "Got it — here's what happens next | FABBI",
-  description: "We'll review your business and reach out within 1 business day.",
+  title: "Book your 15-minute call | FABBI",
+  description:
+    "We received your info. Pick a time so we can review your setup and identify opportunities to save you money.",
   robots: { index: false, follow: false },
 };
-
-const NEXT_STEPS = [
-  "We review your business and tax setup",
-  "We identify opportunities to save money",
-  "We reach out within 1 business day",
-];
 
 const REVIEW_ITEMS = [
   "Your tax setup",
@@ -35,8 +30,9 @@ export default function IntakeThanksPage() {
 
   return (
     <main className="min-h-screen bg-brand-blue-tint">
-      <div className="mx-auto max-w-2xl px-5 py-20 sm:px-8 sm:py-24">
-        <div className="rounded-2xl border border-brand-hairline bg-white p-8 shadow-card sm:p-10">
+      <div className="mx-auto max-w-3xl px-5 py-14 sm:px-8 sm:py-20">
+        {/* Primary action: booking. Rendered first so submitters can act now. */}
+        <section className="rounded-2xl border border-brand-hairline bg-white p-8 shadow-card sm:p-10">
           <span className="inline-flex items-center gap-2 rounded-full bg-brand-mint px-3 py-1 text-xs font-semibold text-brand-navy">
             <svg
               viewBox="0 0 20 20"
@@ -56,44 +52,29 @@ export default function IntakeThanksPage() {
           </span>
 
           <h1 className="mt-5 text-3xl font-semibold leading-tight tracking-tight text-brand-navy sm:text-4xl">
-            Got it — here&rsquo;s what happens next.
+            Book Your 15-Minute Call Now.
           </h1>
           <p className="mt-4 text-base leading-relaxed text-brand-navy/80 sm:text-lg">
-            A confirmation email is on its way. In the meantime:
+            We&rsquo;ve received your info — the next step is to schedule your
+            call so we can review your setup and identify opportunities to
+            save you money.
+          </p>
+          <p className="mt-3 text-sm font-medium text-brand-blue">
+            Most clients book within a few minutes — availability fills
+            quickly.
           </p>
 
-          <ol className="mt-6 space-y-3">
-            {NEXT_STEPS.map((step, i) => (
-              <li
-                key={step}
-                className="flex items-start gap-3 text-[15px] leading-relaxed text-brand-navy"
-              >
-                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-navy text-xs font-semibold text-white">
-                  {i + 1}
-                </span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
-
           {calendlyUrl ? (
-            <div className="mt-10 border-t border-brand-hairline pt-8">
-              <h2 className="text-lg font-semibold text-brand-navy">
-                Prefer to lock a time in now?
-              </h2>
-              <p className="mt-1 text-sm text-brand-muted">
-                Pick a 20-minute slot below.
-              </p>
+            <div className="mt-6">
               <ThanksCalendly url={calendlyUrl} />
             </div>
           ) : (
-            <p className="mt-10 border-t border-brand-hairline pt-6 text-sm text-brand-muted">
-              {/* TODO: set NEXT_PUBLIC_CALENDLY_URL in env to embed the scheduler here. */}
-              We&rsquo;ll follow up with a scheduling link in your
-              confirmation email.
+            <p className="mt-6 rounded-xl border border-brand-hairline bg-brand-blue-tint/60 px-5 py-4 text-sm text-brand-navy">
+              {/* TODO: set NEXT_PUBLIC_CALENDLY_URL in env to embed the scheduler. */}
+              We&rsquo;ll follow up with a scheduling link shortly.
             </p>
           )}
-        </div>
+        </section>
 
         {/* What we'll review — sets expectations for the call and makes the
             prospect feel value before we ever get on the phone. */}
