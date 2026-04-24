@@ -1,6 +1,7 @@
 import "server-only";
 import { config } from "@/lib/config";
 import { prisma } from "@/lib/db";
+import { formatServiceInterests } from "@/lib/features/leads/format";
 import { sendEmail } from "@/lib/integrations/email";
 import { sendSmsViaTelnyx } from "@/lib/integrations/sms/telnyx";
 import { sendWhatsAppTemplate, sendWhatsAppText } from "@/lib/integrations/whatsapp/meta";
@@ -177,6 +178,11 @@ function buildVars(
     niche: prettyEnum(lead.niche),
     owner_name: actor ? `${actor.firstName} ${actor.lastName}` : config.firmName,
     firm_name: config.firmName,
+    // Personalized "You selected: Bookkeeping, Tax Planning, Cost Segregation."
+    // line. Rendered with trailing newlines so templates can place
+    // `{{selected_services}}` directly before the opening paragraph and
+    // get a clean blank line when nothing was selected.
+    selected_services: formatSelectedServicesLine(lead.serviceInterests ?? []),
     // Wrap the booking URL with surrounding copy so templates can place
     // `{{booking_link}}` on its own line and get a grammatical sentence
     // when set, or a blank line when CALENDLY_DEFAULT_EVENT_URL is unset.
@@ -195,6 +201,14 @@ function prettyEnum(value: string) {
     .split("_")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+// Render the "You selected: …" line with trailing newlines when there's
+// something to show; empty string otherwise. Templates place the variable
+// on its own paragraph break so the body flows cleanly in either case.
+function formatSelectedServicesLine(services: string[]): string {
+  const list = formatServiceInterests(services);
+  return list ? `You selected: ${list}.\n\n` : "";
 }
 
 // Type helper so TS doesn't complain about the template param being unused at module scope.

@@ -188,13 +188,14 @@ const MESSAGE_TEMPLATES = [
     subject: "We got your request — here's what happens next",
     bodyText:
       "Hi {{first_name}},\n\n" +
+      "{{selected_services}}" +
       "Thanks for reaching out to FABBI. Here's what happens next:\n\n" +
       "  • We're reviewing your setup now\n" +
       "  • We'll identify tax savings opportunities\n" +
       "  • You'll hear from us shortly\n\n" +
       "{{booking_link}}\n\n" +
       "Talk soon,\n{{owner_name}}\nFABBI",
-    variables: ["first_name", "booking_link", "owner_name"],
+    variables: ["first_name", "selected_services", "booking_link", "owner_name"],
   },
   {
     key: "qualified.schedule.email",
