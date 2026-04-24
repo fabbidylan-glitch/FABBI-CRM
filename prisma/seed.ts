@@ -185,12 +185,16 @@ const MESSAGE_TEMPLATES = [
     name: "Inquiry received — confirmation",
     channel: CommunicationChannel.EMAIL,
     category: "inquiry_confirmation",
-    subject: "Thanks for reaching out to FABBI, {{first_name}}",
+    subject: "We got your request — here's what happens next",
     bodyText:
-      "Hi {{first_name}},\n\nThanks for contacting FABBI. We specialize in tax strategy, " +
-      "bookkeeping, and full-service accounting for short-term rental owners and real estate investors. " +
-      "We received your inquiry about {{service_interest}} and will be in touch shortly.\n\n— {{owner_name}}, FABBI",
-    variables: ["first_name", "service_interest", "owner_name"],
+      "Hi {{first_name}},\n\n" +
+      "Thanks for reaching out to FABBI. Here's what happens next:\n\n" +
+      "  • We're reviewing your setup now\n" +
+      "  • We'll identify tax savings opportunities\n" +
+      "  • You'll hear from us shortly\n\n" +
+      "{{booking_link}}\n\n" +
+      "Talk soon,\n{{owner_name}}\nFABBI",
+    variables: ["first_name", "booking_link", "owner_name"],
   },
   {
     key: "qualified.schedule.email",

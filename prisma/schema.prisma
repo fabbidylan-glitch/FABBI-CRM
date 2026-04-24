@@ -70,6 +70,15 @@ enum LeadGrade {
   D
 }
 
+// Coarse-grained prioritization tier derived from a simple additive formula
+// (see src/lib/scoring/tier.ts). Independent of LeadGrade / leadScore, which
+// remain the primary fit-signal outputs of the main scoring engine.
+enum LeadTier {
+  HIGH
+  MEDIUM
+  LOW
+}
+
 enum LeadSource {
   WEBSITE
   LANDING_PAGE
@@ -415,6 +424,10 @@ model Lead {
   leadScore                Int                    @default(0) @map("lead_score")
   leadGrade                LeadGrade?             @map("lead_grade")
   qualificationStatus      QualificationStatus    @default(UNREVIEWED) @map("qualification_status")
+  // Prioritization tier from the simpler additive formula in scoring/tier.ts.
+  // Independent of leadScore/leadGrade; drives sales team triage + HIGH-tier alerting.
+  leadTier                 LeadTier?              @map("lead_tier")
+  leadTierScore            Int?                   @map("lead_tier_score")
   estimatedAnnualValue     Decimal?               @map("estimated_annual_value") @db.Decimal(12, 2)
   disqualificationReason   String?                @map("disqualification_reason")
   lostReasonId             String?                @map("lost_reason_id")

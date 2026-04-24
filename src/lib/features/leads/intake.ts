@@ -4,6 +4,8 @@ import { config } from "@/lib/config";
 import { prisma } from "@/lib/db";
 import { sendMessage } from "@/lib/messaging/send";
 import { scoreLead } from "@/lib/scoring/score";
+import { computeLeadTier } from "@/lib/scoring/tier";
+import { sendNewLeadAlert } from "@/lib/notifications/new-lead-alert";
 import { normalizePhoneE164, type LeadIntakeInput } from "@/lib/validators/lead-intake";
 
 export type IntakeResult = {
@@ -12,6 +14,8 @@ export type IntakeResult = {
   score: number;
   grade: "A" | "B" | "C" | "D";
   qualification: "QUALIFIED" | "MANUAL_REVIEW" | "NURTURE_ONLY" | "DISQUALIFIED";
+  tier: "HIGH" | "MEDIUM" | "LOW";
+  tierScore: number;
 };
 
 export type IntakeContext = {
@@ -33,6 +37,7 @@ export type IntakeContext = {
  */
 export async function intakeLead(input: LeadIntakeInput, ctx: IntakeContext = {}): Promise<IntakeResult> {
   const scoring = await scoreLead(input);
+  const tierResult = computeLeadTier(input);
 
   if (!config.dbEnabled) {
     // Preview mode: just return the scored result so the form can show feedback.
@@ -42,6 +47,8 @@ export async function intakeLead(input: LeadIntakeInput, ctx: IntakeContext = {}
       score: scoring.score,
       grade: scoring.grade,
       qualification: scoring.qualification,
+      tier: tierResult.tier,
+      tierScore: tierResult.score,
     };
   }
 
@@ -74,6 +81,8 @@ export async function intakeLead(input: LeadIntakeInput, ctx: IntakeContext = {}
             leadScore: scoring.score,
             leadGrade: scoring.grade,
             qualificationStatus: scoring.qualification,
+            leadTier: tierResult.tier,
+            leadTierScore: tierResult.score,
           },
         });
         await tx.leadScoreBreakdown.create({
@@ -94,6 +103,8 @@ export async function intakeLead(input: LeadIntakeInput, ctx: IntakeContext = {}
         score: scoring.score,
         grade: scoring.grade,
         qualification: scoring.qualification,
+        tier: tierResult.tier,
+        tierScore: tierResult.score,
       };
     }
 
@@ -134,6 +145,8 @@ export async function intakeLead(input: LeadIntakeInput, ctx: IntakeContext = {}
         leadScore: scoring.score,
         leadGrade: scoring.grade,
         qualificationStatus: scoring.qualification,
+        leadTier: tierResult.tier,
+        leadTierScore: tierResult.score,
       },
     });
 
@@ -158,7 +171,7 @@ export async function intakeLead(input: LeadIntakeInput, ctx: IntakeContext = {}
         leadId: lead.id,
         eventType: "LEAD_CREATED",
         toStage: "NEW_LEAD",
-        note: `Lead created via ${input.source}.`,
+        note: `Lead created via ${input.source}. Tier: ${tierResult.tier} (score ${tierResult.score}).`,
       },
     });
 
@@ -168,6 +181,8 @@ export async function intakeLead(input: LeadIntakeInput, ctx: IntakeContext = {}
       score: scoring.score,
       grade: scoring.grade,
       qualification: scoring.qualification,
+      tier: tierResult.tier,
+      tierScore: tierResult.score,
     };
   }).then(async (result) => {
     // Every prospect gets an instant acknowledgment email, regardless of
@@ -205,8 +220,46 @@ export async function intakeLead(input: LeadIntakeInput, ctx: IntakeContext = {}
         console.error("[intake] confirmation email failed", err);
       }
     }
+
+    // Fire internal alert (Slack + email) so the team can respond within
+    // minutes, not a day. HIGH tier is visually emphasized. Only alerts on
+    // newly-created leads — dedup-merged re-submissions don't re-notify.
+    if (result.created) {
+      try {
+        await sendNewLeadAlert({
+          leadId: result.leadId,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          email: input.email,
+          phone: input.phone || null,
+          revenueRange: input.annualRevenueRange,
+          serviceInterest: input.serviceInterest,
+          niche: input.niche,
+          statesOfOperation: input.statesOfOperation ?? [],
+          tier: tierResult.tier,
+          tierScore: tierResult.score,
+          tierReasons: tierResult.reasons,
+          leadScore: scoring.score,
+          leadGrade: scoring.grade,
+          qualification: scoring.qualification,
+          sourcePage: extractSourcePage(input.notes ?? null),
+          painPoint: input.painPoint || null,
+        });
+      } catch (err) {
+        console.error("[intake] new-lead alert failed", err);
+      }
+    }
     return result;
   });
+}
+
+// The 2-step intake form prefixes the notes field with "[Landing page: X]"
+// when the page= attribution param is present. Pull it out so Slack alerts
+// can show the landing page without dumping the raw notes.
+function extractSourcePage(notes: string | null): string | null {
+  if (!notes) return null;
+  const m = notes.match(/^\[Landing page:\s*([^\]]+)\]/);
+  return m ? m[1].trim() : null;
 }
 
 function sanitizePayload(input: LeadIntakeInput) {
