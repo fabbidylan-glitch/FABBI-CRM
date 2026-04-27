@@ -54,6 +54,10 @@ export default async function LeadsListPage({
     : undefined;
   const dir = pick(sp, "dir") === "asc" ? "asc" : pick(sp, "dir") === "desc" ? "desc" : undefined;
 
+  const archivedParam = pick(sp, "archived");
+  const archived: LeadsFilter["archived"] =
+    archivedParam === "only" || archivedParam === "include" ? archivedParam : "active";
+
   const filter: LeadsFilter = {
     search: pick(sp, "search"),
     stage: pick(sp, "stage") as Stage | undefined,
@@ -63,6 +67,7 @@ export default async function LeadsListPage({
     niche: pick(sp, "niche"),
     serviceInterest: pick(sp, "serviceInterest"),
     urgency: pick(sp, "urgency"),
+    archived,
     sort,
     dir,
   };

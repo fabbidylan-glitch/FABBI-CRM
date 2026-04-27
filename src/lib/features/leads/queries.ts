@@ -41,6 +41,14 @@ export type LeadsFilter = {
   ownerUserId?: string;
   sort?: LeadsSortKey;
   dir?: "asc" | "desc";
+  /**
+   * Archive scope for the list. Default ("active") hides archived leads —
+   * "only" shows just the archived ones (an "archive bin" view), "include"
+   * shows everything regardless of status. Active is the default because
+   * after the rep clicks Archive in the bulk bar, they expect those rows to
+   * disappear from the working list.
+   */
+  archived?: "active" | "only" | "include";
 };
 
 export async function listLeads(filter: LeadsFilter = {}): Promise<LeadListItem[]> {
@@ -55,6 +63,13 @@ export async function listLeads(filter: LeadsFilter = {}): Promise<LeadListItem[
 
 async function listLeadsFromDb(filter: LeadsFilter): Promise<LeadListItem[]> {
   const where: Prisma.LeadWhereInput = {};
+  // Status scoping. Default behavior is "active" — archiving has to actually
+  // remove the lead from the rep's working list, otherwise it looks like the
+  // archive button does nothing.
+  const archivedScope = filter.archived ?? "active";
+  if (archivedScope === "active") where.status = "ACTIVE";
+  else if (archivedScope === "only") where.status = "ARCHIVED";
+  // "include" → no status filter
   if (filter.stage) where.pipelineStage = filter.stage;
   if (filter.source) where.source = filter.source as Prisma.LeadWhereInput["source"];
   if (filter.grade) where.leadGrade = filter.grade;
@@ -154,7 +169,11 @@ function buildPrismaOrder(
 
 function filterFixtureLeads(f: LeadsFilter): Lead[] {
   const q = f.search?.trim().toLowerCase() ?? "";
+  const archivedScope = f.archived ?? "active";
   const rows = [...LEADS].filter((l) => {
+    const status = l.status ?? "ACTIVE";
+    if (archivedScope === "active" && status !== "ACTIVE") return false;
+    if (archivedScope === "only" && status !== "ARCHIVED") return false;
     if (f.stage && l.stage !== f.stage) return false;
     if (f.grade && l.grade !== f.grade) return false;
     if (f.qualification && l.qualification !== f.qualification) return false;

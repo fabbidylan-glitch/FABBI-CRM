@@ -133,6 +133,8 @@ export function LeadsFilters() {
       <FilterSelect name="serviceInterest" sp={sp} options={SERVICES} setParam={setParam} />
       <FilterSelect name="urgency" sp={sp} options={URGENCIES} setParam={setParam} />
 
+      <ArchiveToggle sp={sp} setParam={setParam} />
+
       {activeFilters > 0 ? (
         <button
           onClick={() => router.replace("/leads")}
@@ -141,6 +143,43 @@ export function LeadsFilters() {
           Clear filters ({activeFilters})
         </button>
       ) : null}
+    </div>
+  );
+}
+
+function ArchiveToggle({
+  sp,
+  setParam,
+}: {
+  sp: URLSearchParams;
+  setParam: (k: string, v: string) => void;
+}) {
+  const current = sp.get("archived") ?? "";
+  const isArchived = current === "only";
+  return (
+    <div className="ml-1 inline-flex overflow-hidden rounded-md border border-brand-hairline">
+      <button
+        type="button"
+        onClick={() => setParam("archived", "")}
+        className={`px-2.5 py-1.5 text-xs font-medium transition ${
+          !isArchived
+            ? "bg-brand-blue text-white"
+            : "bg-white text-brand-navy hover:bg-brand-blue-tint"
+        }`}
+      >
+        Active
+      </button>
+      <button
+        type="button"
+        onClick={() => setParam("archived", "only")}
+        className={`px-2.5 py-1.5 text-xs font-medium transition ${
+          isArchived
+            ? "bg-brand-navy text-white"
+            : "bg-white text-brand-navy hover:bg-brand-blue-tint"
+        }`}
+      >
+        Archived
+      </button>
     </div>
   );
 }

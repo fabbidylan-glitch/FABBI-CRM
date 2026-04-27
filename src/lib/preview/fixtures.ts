@@ -64,6 +64,8 @@ export type Lead = {
   w2IncomeFlag?: boolean;
   payrollFlag?: boolean;
   otherBusinessIncomeFlag?: boolean;
+  /** Mirrors Prisma's LeadStatus. Defaults to ACTIVE when omitted. */
+  status?: "ACTIVE" | "ARCHIVED" | "MERGED";
   createdAt: string;
   lastContactedAt?: string;
   nextActionAt?: string;
