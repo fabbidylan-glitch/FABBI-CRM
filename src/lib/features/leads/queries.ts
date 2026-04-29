@@ -402,6 +402,16 @@ function toListItem(row: PrismaLeadWithOwner): Lead {
     w2IncomeFlag: row.w2IncomeFlag,
     payrollFlag: row.payrollFlag,
     otherBusinessIncomeFlag: row.otherBusinessIncomeFlag,
+    // Niche-specific — undefined when null so the UI can omit the section
+    // entirely for leads where the field doesn't apply.
+    costSegInterest: row.costSegInterest ?? undefined,
+    salesChannels: (row.salesChannels as string[] | null) ?? undefined,
+    monthlyAdSpendRange: row.monthlyAdSpendRange
+      ? prettyEnum(row.monthlyAdSpendRange)
+      : undefined,
+    booksStatus: row.booksStatus
+      ? humanBooksStatus(row.booksStatus)
+      : undefined,
     createdAt: row.createdAt.toISOString(),
     lastContactedAt: row.lastContactedAt?.toISOString(),
     nextActionAt: nextTask?.dueAt?.toISOString() ?? row.nextActionAt?.toISOString(),
@@ -409,6 +419,26 @@ function toListItem(row: PrismaLeadWithOwner): Lead {
     nextActionPriority: nextTask?.priority as Lead["nextActionPriority"],
     lastStageChangeAt,
   };
+}
+
+// booksStatus is stored as a free-form short code (UP_TO_DATE, BEHIND_1_3,
+// BEHIND_4_PLUS, NEVER_DONE, UNSURE) so we can add codes without a migration.
+// Render with copy that's easier to scan in the lead detail panel.
+function humanBooksStatus(code: string): string {
+  switch (code) {
+    case "UP_TO_DATE":
+      return "Up to date";
+    case "BEHIND_1_3":
+      return "Behind 1–3 months";
+    case "BEHIND_4_PLUS":
+      return "Behind 4+ months";
+    case "NEVER_DONE":
+      return "Never done";
+    case "UNSURE":
+      return "Unsure";
+    default:
+      return code;
+  }
 }
 
 function prettyEnum(value: string | null | undefined) {

@@ -26,7 +26,9 @@ const STR_MISTAKES = [
 ];
 
 export default function IntakeThanksPage() {
-  const calendlyUrl = process.env.NEXT_PUBLIC_CALENDLY_URL ?? null;
+  // Same env var the rest of the app reads — keeps a single source of truth
+  // so ops doesn't have to set two different keys.
+  const calendlyUrl = process.env.CALENDLY_DEFAULT_EVENT_URL ?? null;
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-14 sm:px-8 sm:py-20">
@@ -69,7 +71,6 @@ export default function IntakeThanksPage() {
           </div>
         ) : (
           <p className="mt-6 rounded-xl border border-site-border bg-site-surface px-5 py-4 text-sm text-site-ink-2">
-            {/* TODO: set NEXT_PUBLIC_CALENDLY_URL in env to embed the scheduler. */}
             We&rsquo;ll follow up with a scheduling link shortly.
           </p>
         )}

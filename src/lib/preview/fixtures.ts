@@ -64,6 +64,14 @@ export type Lead = {
   w2IncomeFlag?: boolean;
   payrollFlag?: boolean;
   otherBusinessIncomeFlag?: boolean;
+  // Niche-specific qualification, surfaced on the lead detail page when set.
+  // STR funnel:
+  costSegInterest?: boolean;
+  // E-commerce funnel:
+  salesChannels?: string[];
+  monthlyAdSpendRange?: string;
+  // Both funnels:
+  booksStatus?: string;
   /** Mirrors Prisma's LeadStatus. Defaults to ACTIVE when omitted. */
   status?: "ACTIVE" | "ARCHIVED" | "MERGED";
   createdAt: string;

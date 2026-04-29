@@ -184,6 +184,40 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                   value={lead.estimatedAnnualValue ? formatCurrency(lead.estimatedAnnualValue) : "—"}
                 />
               </dl>
+
+              {/* Niche-specific qualification — rendered only when at least
+                  one signal is present so leads with neither set don't see
+                  an empty section. */}
+              {(lead.costSegInterest !== undefined ||
+                (lead.salesChannels && lead.salesChannels.length > 0) ||
+                lead.monthlyAdSpendRange ||
+                lead.booksStatus) ? (
+                <div className="mt-5 border-t border-brand-hairline pt-4">
+                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-brand-muted">
+                    Niche details
+                  </div>
+                  <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                    {lead.costSegInterest !== undefined ? (
+                      <Field
+                        label="Cost seg interest"
+                        value={lead.costSegInterest ? "Yes" : "No"}
+                      />
+                    ) : null}
+                    {lead.salesChannels && lead.salesChannels.length > 0 ? (
+                      <Field
+                        label="Sales channels"
+                        value={lead.salesChannels.join(", ")}
+                      />
+                    ) : null}
+                    {lead.monthlyAdSpendRange ? (
+                      <Field label="Monthly ad spend" value={lead.monthlyAdSpendRange} />
+                    ) : null}
+                    {lead.booksStatus ? (
+                      <Field label="Books status" value={lead.booksStatus} />
+                    ) : null}
+                  </dl>
+                </div>
+              ) : null}
             </CardBody>
           </Card>
 
