@@ -380,6 +380,7 @@ function toListItem(row: PrismaLeadWithOwner): Lead {
     lastName: row.lastName ?? "",
     email: row.email ?? "",
     phone: row.phoneE164 ?? row.phone ?? "",
+    companyName: row.companyName ?? undefined,
     niche: prettyEnum(row.niche),
     fitType: prettyEnum(row.fitType),
     source: prettyEnum(row.source),

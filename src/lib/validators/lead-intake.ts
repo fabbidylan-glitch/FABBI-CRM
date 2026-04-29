@@ -101,7 +101,10 @@ export const SourceEnum = z.enum([
 
 export const leadIntakeSchema = z.object({
   firstName: z.string().trim().min(1, "First name is required").max(80),
-  lastName: z.string().trim().min(1, "Last name is required").max(80),
+  // Optional — many landing-page submitters skip it. We store empty as null
+  // and let the rep complete it on first contact. The Lead.lastName column
+  // is already nullable; the form previously sent "—" as a workaround.
+  lastName: z.string().trim().max(80).optional().or(z.literal("")),
   email: z.string().trim().toLowerCase().email("Valid email required").max(160),
   phone: z.string().trim().max(40).optional().or(z.literal("")),
   companyName: z.string().trim().max(160).optional().or(z.literal("")),

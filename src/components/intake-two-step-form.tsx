@@ -230,7 +230,7 @@ export function IntakeTwoStepForm() {
 
     const payload = {
       firstName: form.firstName.trim(),
-      lastName: form.lastName.trim() || "—",
+      lastName: form.lastName.trim() || undefined,
       email: form.email.trim(),
       phone: form.phone.trim(),
 
@@ -290,8 +290,7 @@ export function IntakeTwoStepForm() {
   const propertyQuestionVisible = useMemo(
     () =>
       form.niche === "STR_OWNER" ||
-      form.niche === "REAL_ESTATE_INVESTOR" ||
-      form.niche === "AIRBNB_VRBO_OPERATOR",
+      form.niche === "REAL_ESTATE_INVESTOR",
     [form.niche]
   );
 

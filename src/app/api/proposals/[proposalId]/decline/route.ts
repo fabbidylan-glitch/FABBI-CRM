@@ -39,6 +39,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ proposalId
 
   const proposal = await prisma.proposal.findUnique({ where: { id: proposalId } });
   if (!proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
+  // Idempotent re-decline: if the proposal is already DECLINED, return ok
+  // without re-firing the transaction. Avoids 409 spam when the rep
+  // double-clicks or two browser tabs race.
+  if (proposal.proposalStatus === "DECLINED")
+    return NextResponse.json({ ok: true, unchanged: true });
   if (proposal.proposalStatus !== "SENT" && proposal.proposalStatus !== "VIEWED")
     return NextResponse.json(
       { error: `Cannot decline from ${proposal.proposalStatus}` },

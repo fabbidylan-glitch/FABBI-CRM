@@ -6,10 +6,15 @@ import { CommandPalette } from "@/components/command-palette";
 import { InstallAppBanner } from "@/components/install-app-banner";
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import { config } from "@/lib/config";
+import { getSTRAccess } from "@/lib/features/str/auth";
 import { syncClerkUser } from "@/lib/features/users/sync";
 import { ActiveNav } from "@/components/active-nav";
 
-const NAV = [
+// Items everyone with CRM access sees. STR Deals is appended below only if
+// the current user is in the allowed-roles list (ADMIN / MANAGER) — this
+// avoids showing a nav item that just dead-ends in an "access required" page
+// for sales reps.
+const BASE_NAV = [
   { href: "/", label: "Dashboard" },
   { href: "/leads", label: "Leads" },
   { href: "/contacts", label: "Contacts" },
@@ -26,6 +31,14 @@ export async function Shell({ children, title }: { children: ReactNode; title: s
       console.error("[shell] syncClerkUser failed", err);
     }
   }
+
+  // Resolve the STR-deals access gate once per render; falls through to null
+  // (and a hidden nav item) when DB/auth aren't configured or the role isn't
+  // allowed.
+  const strAccess = config.dbEnabled && config.authEnabled ? await getSTRAccess() : null;
+  const NAV = strAccess
+    ? [...BASE_NAV, { href: "/str-deals", label: "STR Deals" }]
+    : BASE_NAV;
   const initials = user
     ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}` || user.emailAddresses[0]?.emailAddress[0]?.toUpperCase() || "U"
     : "DF";

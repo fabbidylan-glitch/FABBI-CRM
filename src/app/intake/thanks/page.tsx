@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { ThanksCalendly } from "./thanks-calendly";
 
+// Force-dynamic so the Calendly URL env var is read per-request. Otherwise a
+// build-time value gets baked in, and changing CALENDLY_DEFAULT_EVENT_URL in
+// Vercel does nothing until the next deploy.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata = {
   title: "Book your 15-minute call | FABBI",
   description:

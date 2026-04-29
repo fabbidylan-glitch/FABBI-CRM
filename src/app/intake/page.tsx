@@ -1,5 +1,10 @@
 import { IntakeTwoStepForm } from "@/components/intake-two-step-form";
 
+// Force-dynamic so any env-var values referenced via process.env (Calendly,
+// firm name, etc.) are read at request time, not baked at build time.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata = {
   title: "Find Out How Much You're Overpaying in Taxes | FABBI",
   description:

@@ -175,49 +175,79 @@ export async function getSourcePerformance(): Promise<SourcePerf[]> {
   return safeQuery(
     "dashboard.sourcePerf",
     async () => {
-      const groups = await prisma.lead.groupBy({
-        by: ["source"],
-        _count: { _all: true },
-        orderBy: { _count: { id: "desc" } },
-      });
-
-      const out: SourcePerf[] = [];
-      for (const g of groups) {
-        const [qualified, consults, proposals, won, wonArrAgg, spendAgg] = await Promise.all([
-          prisma.lead.count({ where: { source: g.source, qualificationStatus: "QUALIFIED" } }),
-          prisma.lead.count({
-            where: {
-              source: g.source,
-              pipelineStage: { in: ["CONSULT_BOOKED", "CONSULT_COMPLETED"] },
+      // Previously this fanned out to 1 + 6×N queries (one per LeadSource per
+      // metric) — with 14 sources that's up to 85 round-trips per dashboard
+      // load on a free-tier Neon. Now we issue 5 queries total: three groupBy
+      // on Lead, one findMany on Proposal (small table; bucket in JS by
+      // lead.source which Prisma groupBy can't reach across the relation),
+      // and one groupBy on MarketingSpend.
+      const [leadTotals, leadQualified, leadConsults, proposals, spendTotals] =
+        await Promise.all([
+          prisma.lead.groupBy({
+            by: ["source"],
+            _count: { _all: true },
+          }),
+          prisma.lead.groupBy({
+            by: ["source"],
+            _count: { _all: true },
+            where: { qualificationStatus: "QUALIFIED" },
+          }),
+          prisma.lead.groupBy({
+            by: ["source"],
+            _count: { _all: true },
+            where: { pipelineStage: { in: ["CONSULT_BOOKED", "CONSULT_COMPLETED"] } },
+          }),
+          prisma.proposal.findMany({
+            where: { proposalStatus: { not: "DRAFT" } },
+            select: {
+              acceptedAt: true,
+              annualValue: true,
+              lead: { select: { source: true } },
             },
           }),
-          prisma.proposal.count({
-            where: { lead: { source: g.source }, proposalStatus: { not: "DRAFT" } },
-          }),
-          prisma.proposal.count({
-            where: { lead: { source: g.source }, acceptedAt: { not: null } },
-          }),
-          prisma.proposal.aggregate({
-            where: { lead: { source: g.source }, acceptedAt: { not: null } },
-            _sum: { annualValue: true },
-          }),
-          prisma.marketingSpend.aggregate({
-            where: { source: g.source },
+          prisma.marketingSpend.groupBy({
+            by: ["source"],
             _sum: { spendAmount: true },
           }),
         ]);
-        out.push({
+
+      // Index helpers — keyed by LeadSource enum value.
+      const qualifiedBy = new Map(
+        leadQualified.map((g) => [g.source, g._count._all])
+      );
+      const consultsBy = new Map(
+        leadConsults.map((g) => [g.source, g._count._all])
+      );
+      const spendBy = new Map(
+        spendTotals.map((g) => [g.source, Number(g._sum.spendAmount ?? 0)])
+      );
+
+      // Bucket proposals by lead.source in one pass.
+      const proposalsBy = new Map<string, number>();
+      const wonBy = new Map<string, number>();
+      const wonArrBy = new Map<string, number>();
+      for (const p of proposals) {
+        const src = p.lead.source;
+        proposalsBy.set(src, (proposalsBy.get(src) ?? 0) + 1);
+        if (p.acceptedAt) {
+          wonBy.set(src, (wonBy.get(src) ?? 0) + 1);
+          wonArrBy.set(src, (wonArrBy.get(src) ?? 0) + Number(p.annualValue ?? 0));
+        }
+      }
+
+      // Sort by total leads desc to match the previous orderBy contract.
+      return [...leadTotals]
+        .sort((a, b) => b._count._all - a._count._all)
+        .map<SourcePerf>((g) => ({
           source: prettyEnum(g.source),
           leads: g._count._all,
-          qualified,
-          consults,
-          proposals,
-          won,
-          wonArr: Number(wonArrAgg._sum.annualValue ?? 0),
-          spend: Number(spendAgg._sum.spendAmount ?? 0),
-        });
-      }
-      return out;
+          qualified: qualifiedBy.get(g.source) ?? 0,
+          consults: consultsBy.get(g.source) ?? 0,
+          proposals: proposalsBy.get(g.source) ?? 0,
+          won: wonBy.get(g.source) ?? 0,
+          wonArr: wonArrBy.get(g.source) ?? 0,
+          spend: spendBy.get(g.source) ?? 0,
+        }));
     },
     () => SOURCE_PERFORMANCE
   );
