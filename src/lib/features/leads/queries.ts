@@ -413,6 +413,17 @@ function toListItem(row: PrismaLeadWithOwner): Lead {
     booksStatus: row.booksStatus
       ? humanBooksStatus(row.booksStatus)
       : undefined,
+    // Attribution. Forwarded raw so the admin can see exact UTM strings,
+    // sub-brand hostnames, and the full landing-page URL.
+    utmSource: row.utmSource ?? undefined,
+    utmMedium: row.utmMedium ?? undefined,
+    utmCampaign: row.utmCampaign ?? undefined,
+    utmTerm: row.utmTerm ?? undefined,
+    utmContent: row.utmContent ?? undefined,
+    serviceLine: row.serviceLine ?? undefined,
+    sourceSubdomain: row.sourceSubdomain ?? undefined,
+    landingPageUrl: row.landingPageUrl ?? undefined,
+    referrer: row.referrer ?? undefined,
     createdAt: row.createdAt.toISOString(),
     lastContactedAt: row.lastContactedAt?.toISOString(),
     nextActionAt: nextTask?.dueAt?.toISOString() ?? row.nextActionAt?.toISOString(),

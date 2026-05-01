@@ -342,6 +342,55 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             <CardBody className="space-y-2 text-sm">
               <Row label="Source" value={lead.source} />
               {lead.campaignName ? <Row label="Campaign" value={lead.campaignName} /> : null}
+              {lead.sourceSubdomain ? (
+                <Row label="Sub-brand" value={lead.sourceSubdomain} />
+              ) : null}
+              {lead.serviceLine ? (
+                <Row label="Service line" value={lead.serviceLine} />
+              ) : null}
+              {lead.utmSource || lead.utmMedium || lead.utmCampaign ? (
+                <Row
+                  label="UTM"
+                  value={[
+                    lead.utmSource ? `src=${lead.utmSource}` : null,
+                    lead.utmMedium ? `med=${lead.utmMedium}` : null,
+                    lead.utmCampaign ? `cmp=${lead.utmCampaign}` : null,
+                    lead.utmTerm ? `term=${lead.utmTerm}` : null,
+                    lead.utmContent ? `content=${lead.utmContent}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                />
+              ) : null}
+              {lead.landingPageUrl ? (
+                <div className="space-y-0.5">
+                  <div className="text-xs uppercase tracking-[0.16em] text-brand-ink-3">
+                    Landing page
+                  </div>
+                  <a
+                    href={lead.landingPageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block truncate font-mono text-xs text-brand-blue hover:underline"
+                    title={lead.landingPageUrl}
+                  >
+                    {lead.landingPageUrl}
+                  </a>
+                </div>
+              ) : null}
+              {lead.referrer ? (
+                <div className="space-y-0.5">
+                  <div className="text-xs uppercase tracking-[0.16em] text-brand-ink-3">
+                    Referrer
+                  </div>
+                  <span
+                    className="block truncate font-mono text-xs text-brand-ink-2"
+                    title={lead.referrer}
+                  >
+                    {lead.referrer}
+                  </span>
+                </div>
+              ) : null}
               <Row label="Niche" value={lead.niche} />
               <Row label="Fit" value={lead.fitType} />
               <Row label="Created" value={formatRelative(lead.createdAt)} />

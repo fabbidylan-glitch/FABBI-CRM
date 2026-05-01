@@ -74,6 +74,17 @@ export type Lead = {
   booksStatus?: string;
   /** Mirrors Prisma's LeadStatus. Defaults to ACTIVE when omitted. */
   status?: "ACTIVE" | "ARCHIVED" | "MERGED";
+  // Attribution. All optional so existing fixtures don't need updating.
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
+  utmTerm?: string | null;
+  utmContent?: string | null;
+  // Mini-brand attribution from the marketing site (costseg/payroll/etc).
+  serviceLine?: string | null;
+  sourceSubdomain?: string | null;
+  landingPageUrl?: string | null;
+  referrer?: string | null;
   createdAt: string;
   lastContactedAt?: string;
   nextActionAt?: string;

@@ -148,6 +148,18 @@ export const leadIntakeSchema = z.object({
   utmTerm: z.string().trim().max(160).optional(),
   utmContent: z.string().trim().max(160).optional(),
 
+  // Mini-brand attribution forwarded from the marketing site. All optional —
+  // a missing field becomes null on the Lead row, never an error.
+  // service_line: "cost_segregation" | "payroll" | "entity_formation" |
+  //   "accounting" | "wealth_management" | (legacy slugs).
+  serviceLine: z.string().trim().max(80).optional(),
+  // source_subdomain: hostname seen by the visitor — e.g. "costseg.fabbi.co".
+  sourceSubdomain: z.string().trim().max(160).optional(),
+  // landing_page_url: full URL the visitor was on when they clicked the CTA.
+  landingPageUrl: z.string().trim().max(2000).optional(),
+  // referrer: document.referrer value at click time.
+  referrer: z.string().trim().max(2000).optional(),
+
   // Honeypot. Real browsers leave this blank; bots fill it.
   website_hp: z.string().max(0).optional(),
 });

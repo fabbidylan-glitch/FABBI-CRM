@@ -126,6 +126,12 @@ type Attribution = {
   utm_campaign: string;
   utm_term: string;
   utm_content: string;
+  // Mini-brand attribution forwarded from the FABBI marketing site. Empty
+  // strings on direct intake submissions; the API treats empty as null.
+  service_line: string;
+  source_subdomain: string;
+  landing_page_url: string;
+  referrer: string;
 };
 
 const EMPTY_ATTRIBUTION: Attribution = {
@@ -137,6 +143,10 @@ const EMPTY_ATTRIBUTION: Attribution = {
   utm_campaign: "",
   utm_term: "",
   utm_content: "",
+  service_line: "",
+  source_subdomain: "",
+  landing_page_url: "",
+  referrer: "",
 };
 
 // Map our UI source param ("website", "landing_page") to the Prisma enum.
@@ -181,6 +191,10 @@ export function IntakeTwoStepForm() {
       utm_campaign: sp.get("utm_campaign") ?? "",
       utm_term: sp.get("utm_term") ?? "",
       utm_content: sp.get("utm_content") ?? "",
+      service_line: sp.get("service_line") ?? "",
+      source_subdomain: sp.get("source_subdomain") ?? "",
+      landing_page_url: sp.get("landing_page_url") ?? "",
+      referrer: sp.get("referrer") ?? "",
     });
   }, []);
 
@@ -256,6 +270,13 @@ export function IntakeTwoStepForm() {
       utmCampaign: attribution.utm_campaign || undefined,
       utmTerm: attribution.utm_term || undefined,
       utmContent: attribution.utm_content || undefined,
+
+      // Mini-brand attribution. Each field is undefined when absent so the
+      // server-side schema treats it as null on the Lead row.
+      serviceLine: attribution.service_line || undefined,
+      sourceSubdomain: attribution.source_subdomain || undefined,
+      landingPageUrl: attribution.landing_page_url || undefined,
+      referrer: attribution.referrer || undefined,
 
       website_hp: form.website_hp,
     };

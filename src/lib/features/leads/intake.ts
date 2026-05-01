@@ -126,6 +126,12 @@ export async function intakeLead(input: LeadIntakeInput, ctx: IntakeContext = {}
         utmCampaign: input.utmCampaign || null,
         utmTerm: input.utmTerm || null,
         utmContent: input.utmContent || null,
+        // Mini-brand attribution from the marketing site. First-touch values
+        // — we don't overwrite on later submissions from the same lead.
+        serviceLine: input.serviceLine || null,
+        sourceSubdomain: input.sourceSubdomain || null,
+        landingPageUrl: input.landingPageUrl || null,
+        referrer: input.referrer || null,
         niche: input.niche,
         serviceInterest: input.serviceInterest,
         serviceInterests: input.serviceInterests ?? [],

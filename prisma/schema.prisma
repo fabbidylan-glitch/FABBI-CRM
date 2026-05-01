@@ -382,6 +382,15 @@ model Lead {
   utmTerm                  String?                @map("utm_term")
   utmContent               String?                @map("utm_content")
 
+  // Mini-brand attribution. Sent from the marketing site as URL params on
+  // the intake link so we can see which sub-brand site (and which exact
+  // landing page) produced the lead. All optional — direct intake submits
+  // without these and that's fine.
+  serviceLine              String?                @map("service_line")
+  sourceSubdomain          String?                @map("source_subdomain")
+  landingPageUrl           String?                @map("landing_page_url")
+  referrer                 String?                @map("referrer")
+
   // Qualification inputs
   niche                    Niche                  @default(UNKNOWN)
   fitType                  FitType                @default(UNKNOWN) @map("fit_type")
