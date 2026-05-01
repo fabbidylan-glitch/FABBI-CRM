@@ -252,6 +252,10 @@ export async function intakeLead(input: LeadIntakeInput, ctx: IntakeContext = {}
           qualification: scoring.qualification,
           sourcePage: extractSourcePage(input.notes ?? null),
           painPoint: input.painPoint || null,
+          sourceSubdomain: input.sourceSubdomain || null,
+          serviceLine: input.serviceLine || null,
+          landingPageUrl: input.landingPageUrl || null,
+          referrer: input.referrer || null,
         });
       } catch (err) {
         console.error("[intake] new-lead alert failed", err);

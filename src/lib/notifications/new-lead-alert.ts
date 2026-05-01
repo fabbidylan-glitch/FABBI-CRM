@@ -39,6 +39,13 @@ export type NewLeadAlertPayload = {
   qualification: string;
   sourcePage?: string | null;
   painPoint?: string | null;
+
+  // Mini-brand attribution forwarded from the marketing site. All optional;
+  // direct intake submits with all four null and these rows are skipped.
+  sourceSubdomain?: string | null;
+  serviceLine?: string | null;
+  landingPageUrl?: string | null;
+  referrer?: string | null;
 };
 
 export async function sendNewLeadAlert(payload: NewLeadAlertPayload): Promise<void> {
@@ -80,6 +87,27 @@ async function sendSlack(payload: NewLeadAlertPayload): Promise<void> {
   ];
   if (payload.painPoint) {
     lines.push(`> ${truncate(payload.painPoint, 240)}`);
+  }
+
+  // Mini-brand attribution rows. Only render rows whose values exist so a
+  // direct intake submission produces no blank lines. URLs render as Slack
+  // hyperlinks (<url|host/path>) so long query strings don't blow up the
+  // message; full URL is preserved on click.
+  const attribLines: string[] = [];
+  if (payload.sourceSubdomain) {
+    attribLines.push(`Sub-brand: \`${payload.sourceSubdomain}\``);
+  }
+  if (payload.serviceLine) {
+    attribLines.push(`Service line: \`${payload.serviceLine}\``);
+  }
+  if (payload.landingPageUrl) {
+    attribLines.push(`Landing page: ${slackHyperlink(payload.landingPageUrl)}`);
+  }
+  if (payload.referrer) {
+    attribLines.push(`Referrer: ${slackHyperlink(payload.referrer)}`);
+  }
+  if (attribLines.length > 0) {
+    lines.push(...attribLines);
   }
 
   const body = {
@@ -155,6 +183,10 @@ async function sendInternalEmail(payload: NewLeadAlertPayload): Promise<void> {
     `Fit:      ${payload.leadScore}/100${payload.leadGrade ? ` (${payload.leadGrade})` : ""}`,
     `States:   ${states}`,
     payload.sourcePage ? `Landing:  ${payload.sourcePage}` : null,
+    payload.sourceSubdomain ? `Sub-brand: ${payload.sourceSubdomain}` : null,
+    payload.serviceLine ? `Service line: ${payload.serviceLine}` : null,
+    payload.landingPageUrl ? `Landing page: ${truncate(payload.landingPageUrl, 200)}` : null,
+    payload.referrer ? `Referrer: ${truncate(payload.referrer, 200)}` : null,
     payload.painPoint ? `\nPain point:\n${truncate(payload.painPoint, 600)}` : null,
     leadUrl ? `\nOpen lead in CRM: ${leadUrl}` : null,
   ].filter((l): l is string => l !== null);
@@ -184,6 +216,18 @@ async function sendInternalEmail(payload: NewLeadAlertPayload): Promise<void> {
     ["States", escapeHtml(states)],
     ...(payload.sourcePage
       ? [["Landing", escapeHtml(payload.sourcePage)] as [string, string]]
+      : []),
+    ...(payload.sourceSubdomain
+      ? [["Sub-brand", `<code>${escapeHtml(payload.sourceSubdomain)}</code>`] as [string, string]]
+      : []),
+    ...(payload.serviceLine
+      ? [["Service line", `<code>${escapeHtml(payload.serviceLine)}</code>`] as [string, string]]
+      : []),
+    ...(payload.landingPageUrl
+      ? [["Landing page", htmlAnchor(payload.landingPageUrl)] as [string, string]]
+      : []),
+    ...(payload.referrer
+      ? [["Referrer", htmlAnchor(payload.referrer)] as [string, string]]
       : []),
   ];
   const bodyHtml = `<!doctype html>
@@ -307,4 +351,38 @@ function humanNiche(v: string): string {
 
 function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max - 1).trimEnd()}…` : s;
+}
+
+/**
+ * Slack hyperlink format: <url|display>. Falls back to the raw string if
+ * the URL doesn't parse (e.g. "(direct)" for empty referrers, or malformed
+ * inputs). Display text is host + truncated path so long query strings
+ * don't dominate the message.
+ */
+function slackHyperlink(raw: string): string {
+  const trimmed = raw.trim();
+  try {
+    const u = new URL(trimmed);
+    const path = u.pathname === "/" ? "" : u.pathname;
+    const display = truncate(`${u.hostname}${path}`, 60);
+    return `<${trimmed}|${display}>`;
+  } catch {
+    return truncate(trimmed, 80);
+  }
+}
+
+/**
+ * <a href> tag for the HTML email. URL is escaped, display text is host +
+ * truncated path. Falls back to escaped raw string if not a valid URL.
+ */
+function htmlAnchor(raw: string): string {
+  const trimmed = raw.trim();
+  try {
+    const u = new URL(trimmed);
+    const path = u.pathname === "/" ? "" : u.pathname;
+    const display = truncate(`${u.hostname}${path}`, 60);
+    return `<a href="${escapeHtml(trimmed)}" style="color:#005bf7;text-decoration:none">${escapeHtml(display)}</a>`;
+  } catch {
+    return escapeHtml(truncate(trimmed, 80));
+  }
 }
